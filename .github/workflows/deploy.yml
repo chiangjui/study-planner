@@ -1,0 +1,64 @@
+# 自動部署到 GitHub Pages
+# push 到 main 分支時：安裝套件 → build（靜態輸出到 out/）→ 部署
+# Supabase 的 URL 與 anon key 從 GitHub Secrets 讀取，不會出現在程式碼裡
+
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # 也可以在 GitHub 的 Actions 頁面手動按 Run workflow
+  workflow_dispatch:
+
+# 部署到 Pages 需要的權限
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同時只跑一個部署，新的 push 會排在後面
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 下載程式碼
+        uses: actions/checkout@v4
+
+      - name: 安裝 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安裝套件
+        run: npm ci
+
+      - name: Build（靜態輸出）
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      # 告訴 GitHub Pages 不要用 Jekyll 處理（否則 _next 開頭的資料夾會被忽略）
+      - name: 加上 .nojekyll
+        run: touch out/.nojekyll
+
+      - name: 上傳網站檔案
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
