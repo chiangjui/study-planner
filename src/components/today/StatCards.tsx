@@ -1,6 +1,6 @@
 // 今日頁的小型數據卡：完成進度、今日讀書時數、截止日倒數、運動
 
-import Card, { BigNumber, Empty } from "@/components/Card";
+import Card, { ArrowLink, BigNumber, Empty } from "@/components/Card";
 import { daysBetween, shortDate, taipeiDate } from "@/lib/date";
 import type { StudySession, Task, Workout } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
@@ -120,7 +120,7 @@ export function DeadlinesCard({
 export function WorkoutCard({ workouts, date, className }: { workouts: Workout[]; date: string; className?: string }) {
   const todays = workouts.filter((w) => w.workout_date === date);
   return (
-    <Card title="Workout" tone="secondary" className={className}>
+    <Card title="Workout" tone="secondary" className={className} action={<ArrowLink href="/habits" label="記錄運動" />}>
       <div className="mt-auto">
         <BigNumber value={workouts.length} denominator="WEEK" />
         <p className="mt-4 text-xs uppercase tracking-[0.1em] opacity-70">

@@ -1,6 +1,6 @@
 "use client";
 
-import Card, { Empty } from "@/components/Card";
+import Card, { ArrowLink, Empty } from "@/components/Card";
 import Checkbox from "@/components/Checkbox";
 import type { Habit, HabitLog } from "@/lib/types";
 
@@ -25,16 +25,18 @@ export default function HabitsCard({
       title="Habits"
       className={className}
       action={
-        habits.length > 0 && (
-          <span className="text-xs tabular-nums text-muted">
-            {doneToday.size} / {habits.length}
-          </span>
-        )
+        <span className="flex items-center gap-3">
+          {habits.length > 0 && (
+            <span className="text-xs tabular-nums text-muted">
+              {doneToday.size} / {habits.length}
+            </span>
+          )}
+          <ArrowLink href="/habits" label="管理習慣" />
+        </span>
       }
     >
       {habits.length === 0 ? (
-        // 新增習慣的頁面在第 5 階段加入
-        <Empty>還沒有習慣項目</Empty>
+        <Empty>還沒有習慣項目，點右上角新增</Empty>
       ) : (
         <ul className="-mx-2">
           {habits.map((h) => {

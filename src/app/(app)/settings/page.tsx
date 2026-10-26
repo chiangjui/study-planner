@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
 import { useUser } from "@/components/AuthGuard";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_SETTINGS } from "@/lib/types";
@@ -39,12 +39,7 @@ export default function SettingsPage() {
 
   return (
     <main className="mx-auto max-w-xl px-4 py-4 md:px-8 md:py-6">
-      <header className="mb-3 flex items-center justify-between">
-        <Link href="/" className="flex h-11 items-center text-xs uppercase tracking-[0.1em] text-muted hover:text-fg">
-          ← Today
-        </Link>
-        <h1 className="text-xs uppercase tracking-[0.1em]">Settings</h1>
-      </header>
+      <PageHeader title="Settings" />
 
       <section className="card">
         {!form ? (

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 type Tone = "default" | "primary" | "secondary";
 
 // 三種卡片底色：一般（深灰）、重點（霧藍）、次要（灰米色，文字改深色）
@@ -40,6 +42,19 @@ export function BigNumber({ value, denominator }: { value: string | number; deno
       <span className="text-5xl leading-none tabular-nums">{value}</span>
       {denominator && <span className="text-sm tabular-nums opacity-70">/ {denominator}</span>}
     </p>
+  );
+}
+
+// 卡片右上角的 ↗ 圓形連結（參考設計稿），外層 44px 方便點
+export function ArrowLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} aria-label={label} className="group -my-3 -mr-3 flex h-11 w-11 items-center justify-center">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-current/10 transition-colors group-hover:bg-current/20">
+        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M5 11L11 5M6 5h5v5" />
+        </svg>
+      </span>
+    </Link>
   );
 }
 

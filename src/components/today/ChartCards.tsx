@@ -2,7 +2,7 @@
 // 用純 CSS / SVG 畫，不另外安裝圖表套件
 
 import Card, { Empty } from "@/components/Card";
-import { daysBetween } from "@/lib/date";
+import { daysBetween, taipeiDate } from "@/lib/date";
 import type { Habit, HabitLog, StudySession } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
 
@@ -63,7 +63,7 @@ export function WeeklyStudyCard({
 }
 
 // ---------------------------------------------------------------------
-// 本週習慣完成率 = 本週已打卡次數 / (習慣數 × 本週已經過的天數)
+// 本週習慣完成率 = 本週已打卡次數 / 每個習慣本週應打卡天數的總和
 // ---------------------------------------------------------------------
 export function HabitRateCard({
   habits,
@@ -78,8 +78,12 @@ export function HabitRateCard({
   weekStart: string;
   className?: string;
 }) {
-  const daysElapsed = daysBetween(weekStart, date) + 1;
-  const possible = habits.length * daysElapsed;
+  // 每個習慣從「本週一」和「建立那天」較晚的一天開始算，本週才新增的習慣不會被扣分
+  const possible = habits.reduce((sum, h) => {
+    const created = taipeiDate(new Date(h.created_at));
+    const from = created > weekStart ? created : weekStart;
+    return sum + Math.max(0, daysBetween(from, date) + 1);
+  }, 0);
   const done = logs.filter((l) => l.log_date <= date).length;
   const ratio = possible ? Math.min(1, done / possible) : 0;
 
