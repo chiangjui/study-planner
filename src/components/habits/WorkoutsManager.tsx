@@ -95,7 +95,7 @@ export default function WorkoutsManager() {
           />
           <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-muted">MIN</span>
         </label>
-        <button type="submit" className="btn-primary px-0" aria-label="新增運動紀錄">
+        <button type="submit" className="btn-primary px-0 text-lg" aria-label="新增運動紀錄">
           <PlusIcon />
         </button>
       </form>

@@ -88,7 +88,7 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
           onChange={(e) => setTitle(e.target.value)}
           disabled={adding}
         />
-        <button type="submit" className="btn-primary w-11 shrink-0 px-0" disabled={adding} aria-label="新增">
+        <button type="submit" className="btn-primary w-11 shrink-0 px-0 text-lg" disabled={adding} aria-label="新增">
           <PlusIcon />
         </button>
       </form>

@@ -108,7 +108,7 @@ export default function HabitsManager() {
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            <button type="submit" className="btn-primary w-11 shrink-0 px-0" aria-label="新增習慣">
+            <button type="submit" className="btn-primary w-11 shrink-0 px-0 text-lg" aria-label="新增習慣">
               <PlusIcon />
             </button>
           </form>
