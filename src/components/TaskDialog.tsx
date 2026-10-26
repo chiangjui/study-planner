@@ -119,7 +119,7 @@ function DialogForm({
       <form
         onSubmit={handleSave}
         onClick={(e) => e.stopPropagation()}
-        className="flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-card bg-card p-5 sm:rounded-card"
+        className="flex max-h-[90vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-card bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-card sm:pb-5"
       >
         <h2 className="card-title">{editingId ? "Edit task" : "New task"}</h2>
 
@@ -137,7 +137,7 @@ function DialogForm({
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
-                className={`h-10 rounded-[4px] text-sm transition-colors ${
+                className={`h-11 rounded-[4px] text-sm transition-colors ${
                   type === t ? (t === "exam" ? "bg-primary text-fg" : "bg-card text-fg") : "text-muted hover:text-fg"
                 }`}
               >

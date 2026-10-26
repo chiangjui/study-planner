@@ -50,7 +50,9 @@ export function toDraft(course: Course, schedules: CourseSchedule[]): CourseDraf
   };
 }
 
-const smallInput = "h-11 rounded-[4px] border border-line bg-bg px-2 text-sm text-fg outline-none focus:border-primary";
+// 手機上 16px，避免 iPhone 點輸入框時自動放大
+const smallInput =
+  "h-11 min-w-0 rounded-[4px] border border-line bg-bg px-2 text-base text-fg outline-none focus:border-primary md:text-sm";
 
 export default function CourseForm({
   courseId,
@@ -296,7 +298,8 @@ export default function CourseForm({
       <Card title="Weekly topics 每週進度">
         <div className="flex flex-col gap-2">
           {draft.weekly_topics.map((t, i) => (
-            <div key={i} className="grid grid-cols-[56px_140px_1fr_44px] gap-2">
+            // 手機：第一行「週次、日期、刪除」，第二行主題；桌機一行排完
+            <div key={i} className="grid grid-cols-[56px_1fr_44px] gap-2 border-b border-line pb-3 md:grid-cols-[56px_140px_1fr_44px] md:border-0 md:pb-0">
               <input
                 type="number"
                 className={`${smallInput} tabular-nums`}
@@ -313,7 +316,7 @@ export default function CourseForm({
                 aria-label="日期"
               />
               <input
-                className={smallInput}
+                className={`${smallInput} order-last col-span-3 md:order-none md:col-span-1`}
                 placeholder="主題"
                 value={t.topic}
                 onChange={(e) => updateAt("weekly_topics", i, { topic: e.target.value })}

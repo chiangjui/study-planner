@@ -41,7 +41,7 @@ export default function PomodoroCard({
       tone="primary"
       className={className}
       action={
-        <Link href="/settings" className="text-[10px] uppercase tracking-[0.1em] opacity-70 hover:opacity-100">
+        <Link href="/settings" className="-my-3 flex h-11 items-center text-[10px] uppercase tracking-[0.1em] opacity-70 hover:opacity-100">
           {focusMinutes} / {breakMinutes} min
         </Link>
       }
@@ -61,7 +61,7 @@ export default function PomodoroCard({
           <select
             value={courseId}
             onChange={(e) => setCourseId(e.target.value)}
-            className="h-11 w-full rounded-[4px] border border-fg/20 bg-fg/10 px-3 text-sm text-fg outline-none focus:border-fg/60"
+            className="h-11 w-full rounded-[4px] border border-fg/20 bg-fg/10 px-3 text-base text-fg outline-none focus:border-fg/60 md:text-sm"
           >
             <option value="" className="bg-card">
               選擇科目…

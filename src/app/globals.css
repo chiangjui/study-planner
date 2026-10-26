@@ -52,9 +52,10 @@ body {
     @apply text-xs uppercase tracking-[0.1em] text-muted;
   }
 
-  /* 輸入框：高度至少 44px，手機好點 */
+  /* 輸入框：高度至少 44px，手機好點
+     手機上字體 16px：iPhone Safari 點到小於 16px 的輸入框會自動放大畫面 */
   .input {
-    @apply h-11 w-full rounded-[4px] border border-line bg-bg px-3 text-sm text-fg outline-none transition-colors placeholder:text-muted focus:border-primary;
+    @apply h-11 w-full rounded-[4px] border border-line bg-bg px-3 text-base text-fg outline-none transition-colors placeholder:text-muted focus:border-primary md:text-sm;
   }
 
   /* 主要按鈕 */

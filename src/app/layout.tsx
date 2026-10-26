@@ -8,6 +8,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#1C1C1E",
+  // 讓畫面延伸到 iPhone 瀏海／Home 橫條區域，底部導覽列再用 safe-area 留空
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
