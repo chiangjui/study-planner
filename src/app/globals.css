@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+/*
+ * 英文與數字字體 Proto Mono
+ * 用相對路徑引用 public/fonts，打包時會被複製到 _next/static 並自動加上 basePath，
+ * 這樣部署到 GitHub Pages 的子路徑（/study-planner）也能正確載入。
+ */
+@font-face {
+  font-family: "Proto Mono";
+  src:
+    url("../../public/fonts/ProtoMono-Regular.woff2") format("woff2"),
+    url("../../public/fonts/ProtoMono-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* 設計規範的顏色與字體，之後可直接用 bg-bg、bg-card、text-muted 等 class */
+@theme {
+  --color-bg: #1c1c1e; /* 背景：深炭灰 */
+  --color-card: #232326; /* 卡片：比背景亮一階 */
+  --color-line: #2e2e32; /* 極細分隔線、輸入框邊框 */
+  --color-primary: #5b6e91; /* 主色：霧藍 */
+  --color-secondary: #b8b8ae; /* 輔色：灰米色 */
+  --color-fg: #f2f2f2; /* 主要文字 */
+  --color-muted: #8a8a8e; /* 次要文字 */
+
+  /* Proto Mono 沒有中文字，中文會自動 fallback 到後面的字體 */
+  --font-sans: "Proto Mono", "PingFang TC", "Noto Sans TC", sans-serif;
+
+  --radius-card: 6px;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+@layer components {
+  /* 卡片：只用色差區分層次，不使用陰影 */
+  .card {
+    @apply rounded-card bg-card p-5;
+  }
+
+  /* 卡片標題：全大寫英文 + 加寬字距，例如 TODAY'S FOCUS */
+  .card-title {
+    @apply text-xs uppercase tracking-[0.1em] text-muted;
+  }
+
+  /* 輸入框：高度至少 44px，手機好點 */
+  .input {
+    @apply h-11 w-full rounded-[4px] border border-line bg-bg px-3 text-sm text-fg outline-none transition-colors placeholder:text-muted focus:border-primary;
+  }
+
+  /* 主要按鈕 */
+  .btn-primary {
+    @apply inline-flex h-11 items-center justify-center rounded-[4px] bg-primary px-4 text-sm uppercase tracking-[0.1em] text-fg transition-opacity hover:opacity-90 disabled:opacity-50;
+  }
+}
