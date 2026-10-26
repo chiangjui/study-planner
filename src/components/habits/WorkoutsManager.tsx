@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Card, { Empty } from "@/components/Card";
+import ConfirmButton from "@/components/ConfirmButton";
 import { supabase } from "@/lib/supabase";
 import { shortDate, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
 import type { Workout } from "@/lib/types";
@@ -41,7 +42,6 @@ export default function WorkoutsManager() {
   }
 
   async function deleteWorkout(w: Workout) {
-    if (!confirm(`刪除 ${shortDate(w.workout_date)} 的「${w.kind}」？`)) return;
     const { error } = await supabase.from("workouts").delete().eq("id", w.id);
     if (error) return alert(`刪除失敗：${error.message}`);
     setWorkouts((ws) => ws?.filter((x) => x.id !== w.id) ?? null);
@@ -115,13 +115,14 @@ export default function WorkoutsManager() {
                 </span>
                 <span className="flex-1 truncate">{w.kind}</span>
                 <span className="shrink-0 tabular-nums text-muted">{w.duration_minutes} MIN</span>
-                <button
-                  onClick={() => deleteWorkout(w)}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:text-fg"
-                  aria-label={`刪除 ${w.kind}`}
+                <ConfirmButton
+                  onConfirm={() => deleteWorkout(w)}
+                  confirmLabel="刪除？"
+                  ariaLabel={`刪除 ${w.kind}`}
+                  className="flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm text-muted hover:text-fg"
                 >
                   ×
-                </button>
+                </ConfirmButton>
               </li>
             ))}
           </ul>

@@ -3,7 +3,9 @@
 // 待辦編輯視窗：新增或編輯一筆待辦／作業／考試／報告（今日頁與行事曆共用）
 
 import { useEffect, useState } from "react";
+import ConfirmButton from "@/components/ConfirmButton";
 import { supabase } from "@/lib/supabase";
+import { addDays, daysBetween, shortDate } from "@/lib/date";
 import { TASK_TYPE_LABEL, type Task, type TaskType } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
 
@@ -57,6 +59,14 @@ function DialogForm({
   const [courseId, setCourseId] = useState(initial.course_id ?? "");
   const [dueDate, setDueDate] = useState(initial.due_date ?? "");
   const [plannedDate, setPlannedDate] = useState(initial.planned_date ?? "");
+  // 預計執行天數（從開始日算起，1 = 只有那一天）
+  const [plannedDays, setPlannedDays] = useState(
+    initial.planned_date && initial.planned_end_date ? daysBetween(initial.planned_date, initial.planned_end_date) + 1 : 1,
+  );
+  // 時間：可以只有日期，也可以加上時間
+  const [hasTime, setHasTime] = useState(Boolean(initial.start_time));
+  const [startTime, setStartTime] = useState(initial.start_time?.slice(0, 5) ?? "09:00");
+  const [endTime, setEndTime] = useState(initial.end_time?.slice(0, 5) ?? "10:00");
   const [done, setDone] = useState(initial.done ?? false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -70,14 +80,20 @@ function DialogForm({
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
     setError("");
+    if (hasTime && !dueDate) return setError("加上時間前，請先選擇日期");
+    if (hasTime && endTime <= startTime) return setError("結束時間必須晚於開始時間");
+
+    setSaving(true);
     const row = {
       title: title.trim(),
       type,
       course_id: courseId || null,
       due_date: dueDate || null,
+      start_time: hasTime ? startTime : null,
+      end_time: hasTime ? endTime : null,
       planned_date: plannedDate || null,
+      planned_end_date: plannedDate ? addDays(plannedDate, plannedDays - 1) : null,
       done,
     };
     const { data, error } = editingId
@@ -90,7 +106,7 @@ function DialogForm({
   }
 
   async function handleDelete() {
-    if (!editingId || !confirm(`刪除「${title}」？`)) return;
+    if (!editingId) return;
     const { error } = await supabase.from("tasks").delete().eq("id", editingId);
     if (error) return setError(`刪除失敗：${error.message}`);
     onChange({ kind: "deleted", id: editingId });
@@ -143,15 +159,52 @@ function DialogForm({
           </select>
         </label>
 
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-2">
-            <span className="card-title">Due 截止日</span>
-            <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        {/* 截止日／日期：可以加上時間，有時間就會排進行事曆的時間軸 */}
+        <div className="flex flex-col gap-2">
+          <span className="card-title">Date 截止日／日期</span>
+          <input type="date" className="input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <label className="flex h-11 items-center gap-3 text-sm text-muted">
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-primary"
+              checked={hasTime}
+              onChange={(e) => setHasTime(e.target.checked)}
+            />
+            加上時間
           </label>
-          <label className="flex flex-col gap-2">
-            <span className="card-title">Plan 預計執行</span>
-            <input type="date" className="input" value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} />
-          </label>
+          {hasTime && (
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <input type="time" className="input" value={startTime} required onChange={(e) => setStartTime(e.target.value)} aria-label="開始時間" />
+              <span className="text-muted">–</span>
+              <input type="time" className="input" value={endTime} required onChange={(e) => setEndTime(e.target.value)} aria-label="結束時間" />
+            </div>
+          )}
+        </div>
+
+        {/* 預計執行：開始日 + 天數 */}
+        <div className="flex flex-col gap-2">
+          <span className="card-title">Plan 預計執行</span>
+          <div className="grid grid-cols-[1fr_96px] gap-2">
+            <input type="date" className="input" value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} aria-label="預計執行開始日" />
+            <select
+              className="input"
+              value={plannedDays}
+              disabled={!plannedDate}
+              onChange={(e) => setPlannedDays(Number(e.target.value))}
+              aria-label="預計執行天數"
+            >
+              {Array.from({ length: 14 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n} 天
+                </option>
+              ))}
+            </select>
+          </div>
+          {plannedDate && plannedDays > 1 && (
+            <p className="text-xs text-muted tabular-nums">
+              {shortDate(plannedDate)} – {shortDate(addDays(plannedDate, plannedDays - 1))}，這幾天都會出現在今日待辦
+            </p>
+          )}
         </div>
 
         {editingId && (
@@ -171,13 +224,13 @@ function DialogForm({
             Cancel
           </button>
           {editingId && (
-            <button
-              type="button"
-              onClick={handleDelete}
+            <ConfirmButton
+              onConfirm={handleDelete}
+              confirmLabel="再按一次刪除"
               className="ml-auto h-11 px-4 text-xs uppercase tracking-[0.1em] text-muted hover:text-fg"
             >
               Delete
-            </button>
+            </ConfirmButton>
           )}
         </div>
       </form>

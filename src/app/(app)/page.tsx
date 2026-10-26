@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePomodoro } from "@/lib/pomodoro";
 import { useTodayData } from "@/lib/useTodayData";
-import type { Habit, Task } from "@/lib/types";
+import { isPlannedOn, type Habit, type Task } from "@/lib/types";
 import TaskDialog, { applyTaskChange, type TaskChange, type TaskDialogState } from "@/components/TaskDialog";
 import TopBar from "@/components/today/TopBar";
 import TodayTasksCard from "@/components/today/TodayTasksCard";
@@ -44,8 +44,8 @@ export default function TodayPage() {
   }
 
   const { date } = data;
-  // 今日待辦 = 預計執行日是今天 + 今天截止
-  const todayTasks = data.tasks.filter((t) => t.planned_date === date || t.due_date === date);
+  // 今日待辦 = 預計執行範圍包含今天 + 今天截止
+  const todayTasks = data.tasks.filter((t) => isPlannedOn(t, date) || t.due_date === date);
 
   // 勾選／取消待辦：先更新畫面再寫入資料庫，失敗就重新讀取還原
   async function toggleTask(task: Task) {
@@ -58,7 +58,7 @@ export default function TodayPage() {
   async function addTask(title: string) {
     const { data: row, error } = await supabase
       .from("tasks")
-      .insert({ title, planned_date: date })
+      .insert({ title, planned_date: date, planned_end_date: date })
       .select()
       .single();
     if (error) return alert(`新增失敗：${error.message}`);

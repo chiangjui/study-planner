@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Card from "@/components/Card";
+import ConfirmButton from "@/components/ConfirmButton";
 import { usePomodoro } from "@/lib/pomodoro";
 import type { CourseLite } from "@/lib/useTodayData";
 
@@ -33,11 +34,6 @@ export default function PomodoroCard({
   const totalMs = running ? state.endsAt - state.startedAt : 0;
   const progress = running ? 1 - remainingMs / totalMs : 0;
   const runningCourse = running ? courses.find((c) => c.id === state.courseId) : undefined;
-
-  function handleStop() {
-    if (state.phase === "focus" && !confirm("要放棄這次專注嗎？這次不會記錄讀書時數。")) return;
-    stop();
-  }
 
   return (
     <Card
@@ -89,12 +85,22 @@ export default function PomodoroCard({
         </div>
       </div>
 
-      {running ? (
-        <button
-          onClick={handleStop}
+      {state.phase === "focus" ? (
+        // 放棄專注要按兩次，避免誤觸（放棄的時間不會記錄）
+        <ConfirmButton
+          onConfirm={stop}
+          confirmLabel="再按一次放棄（不記錄）"
+          armedClassName="bg-fg/20"
           className="h-11 w-full rounded-[4px] border border-fg/40 text-sm uppercase tracking-[0.1em] text-fg transition-colors hover:bg-fg/10"
         >
-          {state.phase === "focus" ? "Stop" : "Skip break"}
+          Stop
+        </ConfirmButton>
+      ) : state.phase === "break" ? (
+        <button
+          onClick={stop}
+          className="h-11 w-full rounded-[4px] border border-fg/40 text-sm uppercase tracking-[0.1em] text-fg transition-colors hover:bg-fg/10"
+        >
+          Skip break
         </button>
       ) : (
         <button

@@ -43,7 +43,10 @@ export type Task = {
   course_id: string | null;
   type: TaskType;
   due_date: string | null;
-  planned_date: string | null;
+  planned_date: string | null; // 預計執行第一天
+  planned_end_date: string | null; // 預計執行最後一天（可以跨多天）
+  start_time: string | null; // 有時間的話會排進行事曆時間軸
+  end_time: string | null;
   done: boolean;
   created_at: string;
 };
@@ -87,6 +90,12 @@ export type UserSettings = {
   break_minutes: number;
   updated_at: string;
 };
+
+// 這個待辦的預計執行範圍是否包含某一天
+export function isPlannedOn(task: Task, date: string) {
+  if (!task.planned_date) return false;
+  return task.planned_date <= date && (task.planned_end_date ?? task.planned_date) >= date;
+}
 
 // 還沒存過設定時使用的預設值（與 schema.sql 的 default 一致）
 export const DEFAULT_SETTINGS = {

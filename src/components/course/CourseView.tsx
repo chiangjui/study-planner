@@ -1,6 +1,7 @@
 // 課程詳細頁（閱讀模式）
 
 import Card, { Empty } from "@/components/Card";
+import ConfirmButton from "@/components/ConfirmButton";
 import { addDays, shortDate, startOfWeek, today } from "@/lib/date";
 import { formatSlot, sortSlots } from "@/lib/courses";
 import type { Course, CourseSchedule } from "@/lib/types";
@@ -34,12 +35,15 @@ export default function CourseView({
           <button onClick={onEdit} className="h-11 rounded-[4px] bg-fg px-4 text-xs uppercase tracking-[0.1em] text-primary">
             Edit
           </button>
-          <button
-            onClick={onDelete}
+          {/* 上課時段會一起刪除；待辦與讀書紀錄會保留 */}
+          <ConfirmButton
+            onConfirm={onDelete}
+            confirmLabel="再按一次刪除"
+            armedClassName="bg-fg/20"
             className="h-11 rounded-[4px] border border-fg/40 px-4 text-xs uppercase tracking-[0.1em] hover:bg-fg/10"
           >
             Delete
-          </button>
+          </ConfirmButton>
         </div>
       </section>
 

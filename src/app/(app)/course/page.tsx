@@ -50,7 +50,6 @@ function CourseDetail({ id }: { id: string }) {
 
   async function handleDelete() {
     if (!course) return;
-    if (!confirm(`刪除「${course.name}」？上課時段會一起刪除；待辦與讀書紀錄會保留。`)) return;
     const { error } = await supabase.from("courses").delete().eq("id", course.id);
     if (error) return alert(`刪除失敗：${error.message}`);
     router.push("/courses");

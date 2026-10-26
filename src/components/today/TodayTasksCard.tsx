@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Card, { Empty } from "@/components/Card";
 import Checkbox from "@/components/Checkbox";
+import { daysBetween, shortTime } from "@/lib/date";
 import type { Task } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
 
@@ -20,8 +21,10 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
   const [title, setTitle] = useState("");
   const [adding, setAdding] = useState(false);
 
-  // 未完成的排前面
-  const sorted = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
+  // 未完成的排前面；有時間的依時間排
+  const sorted = [...tasks].sort(
+    (a, b) => Number(a.done) - Number(b.done) || (a.start_time ?? "99").localeCompare(b.start_time ?? "99"),
+  );
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +60,15 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
               </button>
               <span className="ml-3 flex shrink-0 items-center gap-2 text-xs text-muted">
                 {course && <span className="hidden sm:inline">{course.name}</span>}
+                {/* 跨多天的預計執行：顯示今天是第幾天 */}
+                {task.planned_date && task.planned_end_date && task.planned_end_date > task.planned_date && (
+                  <span className="tabular-nums">
+                    D{daysBetween(task.planned_date, date) + 1}/{daysBetween(task.planned_date, task.planned_end_date) + 1}
+                  </span>
+                )}
+                {task.due_date === date && task.start_time && (
+                  <span className="tabular-nums text-fg">{shortTime(task.start_time)}</span>
+                )}
                 {task.due_date === date && !task.done && (
                   <span className="rounded-[4px] bg-primary px-1.5 py-0.5 text-fg">今天截止</span>
                 )}

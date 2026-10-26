@@ -20,7 +20,7 @@ export type TodayData = {
   weekStart: string; // 本週週一
   courses: CourseLite[];
   schedules: CourseSchedule[];
-  tasks: Task[]; // 預計今天做、或截止日在今天之後（含今天）的待辦
+  tasks: Task[]; // 預計執行範圍包含今天、或截止日在今天之後（含今天）的待辦
   sessions: StudySession[]; // 本週讀書紀錄
   settings: typeof DEFAULT_SETTINGS;
   habits: Habit[];
@@ -41,7 +41,7 @@ async function fetchTodayData(): Promise<TodayData> {
       supabase
         .from("tasks")
         .select("*")
-        .or(`planned_date.eq.${date},due_date.gte.${date}`)
+        .or(`planned_date.eq.${date},and(planned_date.lte.${date},planned_end_date.gte.${date}),due_date.gte.${date}`)
         .order("created_at"),
       supabase
         .from("study_sessions")

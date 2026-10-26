@@ -52,7 +52,8 @@ create table public.course_schedules (
 -- tasks：待辦、作業、考試、報告
 -- type         homework 作業 / exam 考試 / report 報告 / general 一般
 -- due_date     截止日（可空）
--- planned_date 預計執行日（可空）
+-- planned_date / planned_end_date 預計執行的第一天與最後一天（可空，可以跨多天）
+-- start_time / end_time 時間（可空），有填就會排進行事曆時間軸（屬於 due_date 那一天）
 -- 刪除課程時，待辦保留，只是 course_id 變成空的
 -- ---------------------------------------------------------------------
 create table public.tasks (
@@ -62,10 +63,21 @@ create table public.tasks (
   course_id    uuid references public.courses (id) on delete set null,
   type         text not null default 'general'
                check (type in ('homework', 'exam', 'report', 'general')),
-  due_date     date,
-  planned_date date,
-  done         boolean not null default false,
-  created_at   timestamptz not null default now()
+  due_date         date,
+  planned_date     date,
+  planned_end_date date,
+  start_time       time,
+  end_time         time,
+  done             boolean not null default false,
+  created_at       timestamptz not null default now(),
+  check (
+    (planned_date is null and planned_end_date is null)
+    or (planned_date is not null and planned_end_date >= planned_date)
+  ),
+  check (
+    (start_time is null and end_time is null)
+    or (start_time is not null and end_time is not null and end_time > start_time and due_date is not null)
+  )
 );
 
 create index tasks_user_due_idx on public.tasks (user_id, due_date);

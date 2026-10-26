@@ -5,7 +5,7 @@ import Link from "next/link";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import { supabase } from "@/lib/supabase";
 import { addDays, shortDate, shortTime, startOfWeek, today, WEEKDAY_EN } from "@/lib/date";
-import type { CourseSchedule, Task, Workout } from "@/lib/types";
+import { isPlannedOn, type CourseSchedule, type Task, type Workout } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
 
 const HOUR_PX = 48; // 時間軸每小時的高度
@@ -28,12 +28,12 @@ async function fetchWeek(weekStart: string): Promise<WeekData> {
   const [courses, schedules, tasks, workouts] = await Promise.all([
     supabase.from("courses").select("id, name"),
     supabase.from("course_schedules").select("*"),
-    // 截止日或預計執行日落在這一週的待辦
+    // 截止日在這一週、或預計執行範圍和這一週有重疊的待辦
     supabase
       .from("tasks")
       .select("*")
       .or(
-        `and(due_date.gte.${weekStart},due_date.lte.${weekEnd}),and(planned_date.gte.${weekStart},planned_date.lte.${weekEnd})`,
+        `and(due_date.gte.${weekStart},due_date.lte.${weekEnd}),and(planned_date.lte.${weekEnd},planned_end_date.gte.${weekStart}),and(planned_date.gte.${weekStart},planned_date.lte.${weekEnd})`,
       ),
     supabase.from("workouts").select("*").gte("workout_date", weekStart).lte("workout_date", weekEnd),
   ]);
@@ -62,14 +62,19 @@ export default function WeekCalendar() {
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  // 時間軸範圍：預設 8:00–18:00，有更早或更晚的課就延長
   const schedules = data?.schedules ?? [];
-  const startHour = Math.min(8, ...schedules.map((s) => Math.floor(toHours(s.start_time))));
-  const endHour = Math.max(18, ...schedules.map((s) => Math.ceil(toHours(s.end_time))));
+  // 有時間的待辦：排進時間軸（在 due_date 那一天）
+  const timedTasks = (data?.tasks ?? []).filter((t) => t.start_time && t.end_time && t.due_date);
+
+  // 時間軸範圍：預設 8:00–18:00，有更早或更晚的課／行程就延長
+  const timeBlocks = [...schedules, ...timedTasks.map((t) => ({ start_time: t.start_time!, end_time: t.end_time! }))];
+  const startHour = Math.min(8, ...timeBlocks.map((s) => Math.floor(toHours(s.start_time))));
+  const endHour = Math.max(18, ...timeBlocks.map((s) => Math.ceil(toHours(s.end_time))));
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
 
-  // 待辦顯示在截止日；沒有截止日就顯示在預計執行日
-  const taskDay = (t: Task) => t.due_date ?? t.planned_date;
+  // 上方欄位：沒有時間的截止項目（實心），以及預計執行的日子（虛線框）
+  const dueChips = (day: string) => data?.tasks.filter((t) => t.due_date === day && !t.start_time) ?? [];
+  const planChips = (day: string) => data?.tasks.filter((t) => isPlannedOn(t, day) && t.due_date !== day) ?? [];
 
   return (
     <section className="rounded-card bg-card p-5">
@@ -108,7 +113,8 @@ export default function WeekCalendar() {
             <div />
             {days.map((day, i) => {
               const isToday = day === todayStr;
-              const dayTasks = data?.tasks.filter((t) => taskDay(t) === day) ?? [];
+              const dayTasks = dueChips(day);
+              const dayPlans = planChips(day);
               const dayWorkouts = data?.workouts.filter((w) => w.workout_date === day) ?? [];
               return (
                 <div key={day} className="flex min-w-0 flex-col gap-1 pb-2">
@@ -139,6 +145,18 @@ export default function WeekCalendar() {
                       } ${t.done ? "text-muted line-through opacity-60" : ""}`}
                     >
                       {t.type === "exam" && "考 · "}
+                      {t.title}
+                    </button>
+                  ))}
+                  {dayPlans.map((t) => (
+                    <button
+                      key={`plan-${t.id}`}
+                      title={`預計執行：${t.title}`}
+                      onClick={() => setDialog({ task: t })}
+                      className={`truncate rounded-[4px] border border-dashed border-muted/50 px-2 py-1 text-left text-[11px] text-muted hover:text-fg ${
+                        t.done ? "line-through opacity-60" : ""
+                      }`}
+                    >
                       {t.title}
                     </button>
                   ))}
@@ -197,6 +215,34 @@ export default function WeekCalendar() {
                             {s.room && ` · ${s.room}`}
                           </p>
                         </Link>
+                      );
+                    })}
+
+                  {/* 有時間的待辦／考試／行程：和課程重疊時靠右半邊顯示 */}
+                  {timedTasks
+                    .filter((t) => t.due_date === day)
+                    .map((t) => {
+                      const start = toHours(t.start_time!);
+                      const end = toHours(t.end_time!);
+                      const overlapsClass = schedules.some(
+                        (s) => s.weekday === weekday && toHours(s.start_time) < end && toHours(s.end_time) > start,
+                      );
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => setDialog({ task: t })}
+                          className={`absolute right-0.5 z-10 overflow-hidden rounded-[4px] px-2 py-1 text-left hover:opacity-90 ${
+                            overlapsClass ? "left-[45%]" : "left-0.5"
+                          } ${t.type === "exam" ? "bg-primary text-fg" : "bg-secondary text-bg"} ${
+                            t.done ? "opacity-50 line-through" : ""
+                          }`}
+                          style={{ top: (start - startHour) * HOUR_PX, height: (end - start) * HOUR_PX }}
+                        >
+                          <p className="truncate text-[11px] leading-tight">{t.title}</p>
+                          <p className="truncate text-[10px] leading-tight opacity-70">
+                            {shortTime(t.start_time!)}–{shortTime(t.end_time!)}
+                          </p>
+                        </button>
                       );
                     })}
                 </div>

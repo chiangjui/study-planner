@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Card, { Empty } from "@/components/Card";
 import Checkbox from "@/components/Checkbox";
+import ConfirmButton from "@/components/ConfirmButton";
 import { supabase } from "@/lib/supabase";
 import { addDays, today } from "@/lib/date";
 import { streakOf } from "@/lib/habits";
@@ -39,7 +40,6 @@ export default function HabitsManager() {
   }
 
   async function deleteHabit(habit: Habit) {
-    if (!confirm(`刪除「${habit.name}」？所有打卡紀錄也會一起刪除。`)) return;
     const { error } = await supabase.from("habits").delete().eq("id", habit.id);
     if (error) return alert(`刪除失敗：${error.message}`);
     setHabits((hs) => hs?.filter((h) => h.id !== habit.id) ?? null);
@@ -86,13 +86,15 @@ export default function HabitsManager() {
                   >
                     {streak} <span className="text-muted">DAYS</span>
                   </span>
-                  <button
-                    onClick={() => deleteHabit(h)}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center text-muted hover:text-fg"
-                    aria-label={`刪除 ${h.name}`}
+                  {/* 打卡紀錄會一起刪除 */}
+                  <ConfirmButton
+                    onConfirm={() => deleteHabit(h)}
+                    confirmLabel="刪除？"
+                    ariaLabel={`刪除 ${h.name}`}
+                    className="flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm text-muted hover:text-fg"
                   >
                     ×
-                  </button>
+                  </ConfirmButton>
                 </li>
               );
             })}
