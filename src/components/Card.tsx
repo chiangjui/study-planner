@@ -58,6 +58,19 @@ export function ArrowLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+// 卡片右上角的 + 圓形按鈕
+export function PlusButton({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button onClick={onClick} aria-label={label} className="group -my-3 -mr-3 flex h-11 w-11 items-center justify-center">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-current/10 transition-colors group-hover:bg-current/20">
+        <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M8 3v10M3 8h10" />
+        </svg>
+      </span>
+    </button>
+  );
+}
+
 // 卡片裡沒有資料時的提示
 export function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted">{children}</p>;

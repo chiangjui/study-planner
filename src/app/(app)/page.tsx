@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { usePomodoro } from "@/lib/pomodoro";
 import { useTodayData } from "@/lib/useTodayData";
 import type { Habit, Task } from "@/lib/types";
+import TaskDialog, { applyTaskChange, type TaskChange, type TaskDialogState } from "@/components/TaskDialog";
 import TopBar from "@/components/today/TopBar";
 import TodayTasksCard from "@/components/today/TodayTasksCard";
 import PomodoroCard from "@/components/today/PomodoroCard";
@@ -16,6 +17,7 @@ import { HabitRateCard, WeeklyStudyCard } from "@/components/today/ChartCards";
 export default function TodayPage() {
   const { data, setData, error, reload } = useTodayData();
   const { onRecorded } = usePomodoro();
+  const [dialog, setDialog] = useState<TaskDialogState>(null);
 
   // 番茄鐘記錄了一筆讀書紀錄 → 直接加進畫面，讀書時數與長條圖會即時更新
   useEffect(
@@ -63,6 +65,11 @@ export default function TodayPage() {
     setData((d) => d && { ...d, tasks: [...d.tasks, row] });
   }
 
+  // 編輯視窗存檔或刪除後，更新畫面上的待辦
+  function handleTaskChange(change: TaskChange) {
+    setData((d) => d && { ...d, tasks: applyTaskChange(d.tasks, change) });
+  }
+
   // 習慣打卡：今天已打卡就刪除那筆，否則新增一筆
   async function toggleHabit(habit: Habit) {
     const existing = data!.habitLogs.find((l) => l.habit_id === habit.id && l.log_date === date);
@@ -97,6 +104,7 @@ export default function TodayPage() {
           courses={data.courses}
           onToggle={toggleTask}
           onAdd={addTask}
+          onEdit={(task) => setDialog({ task })}
         />
         <PomodoroCard
           className="xl:row-span-2"
@@ -106,7 +114,14 @@ export default function TodayPage() {
         />
         <ProgressCard tasks={todayTasks} />
         <StudyHoursCard sessions={data.sessions} date={date} goalHours={data.settings.daily_goal_hours} />
-        <DeadlinesCard className="xl:row-span-2" tasks={data.tasks} date={date} courses={data.courses} />
+        <DeadlinesCard
+          className="xl:row-span-2"
+          tasks={data.tasks}
+          date={date}
+          courses={data.courses}
+          onAdd={() => setDialog({ defaults: { type: "homework" } })}
+          onEdit={(task) => setDialog({ task })}
+        />
         <WeeklyStudyCard className="md:col-span-2" sessions={data.sessions} courses={data.courses} />
         <HabitRateCard
           className="xl:row-span-2"
@@ -118,6 +133,8 @@ export default function TodayPage() {
         <HabitsCard habits={data.habits} logs={data.habitLogs} date={date} onToggle={toggleHabit} />
         <WorkoutCard workouts={data.workouts} date={date} />
       </div>
+
+      <TaskDialog state={dialog} courses={data.courses} onClose={() => setDialog(null)} onChange={handleTaskChange} />
     </main>
   );
 }

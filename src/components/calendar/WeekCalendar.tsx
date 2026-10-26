@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import { supabase } from "@/lib/supabase";
 import { addDays, shortDate, shortTime, startOfWeek, today, WEEKDAY_EN } from "@/lib/date";
 import type { CourseSchedule, Task, Workout } from "@/lib/types";
@@ -47,6 +48,8 @@ async function fetchWeek(weekStart: string): Promise<WeekData> {
 export default function WeekCalendar() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
   const [data, setData] = useState<WeekData | null>(null);
+  const [dialog, setDialog] = useState<TaskDialogState>(null);
+  const [version, setVersion] = useState(0); // 新增／編輯待辦後 +1，重新讀取這一週
   const todayStr = today();
 
   useEffect(() => {
@@ -55,7 +58,7 @@ export default function WeekCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [weekStart]);
+  }, [weekStart, version]);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -76,6 +79,12 @@ export default function WeekCalendar() {
           {shortDate(days[0])} – {shortDate(days[6])}
         </p>
         <div className="flex items-center gap-1">
+          <button
+            onClick={() => setDialog({ defaults: { due_date: todayStr } })}
+            className="btn-primary mr-2"
+          >
+            + New
+          </button>
           <WeekButton onClick={() => setWeekStart(addDays(weekStart, -7))} label="上一週">
             ‹
           </WeekButton>
@@ -103,24 +112,35 @@ export default function WeekCalendar() {
               const dayWorkouts = data?.workouts.filter((w) => w.workout_date === day) ?? [];
               return (
                 <div key={day} className="flex min-w-0 flex-col gap-1 pb-2">
-                  <p
-                    className={`rounded-[4px] px-2 py-1.5 text-xs tabular-nums ${
+                  <div
+                    className={`flex min-w-0 items-center justify-between gap-1 rounded-[4px] pl-2 text-xs tabular-nums ${
                       isToday ? "bg-primary text-fg" : "text-muted"
                     }`}
                   >
-                    {WEEKDAY_EN[i]} <span className="opacity-70">{shortDate(day)}</span>
-                  </p>
+                    <span className="truncate whitespace-nowrap">
+                      {WEEKDAY_EN[i]} <span className="opacity-70">{shortDate(day)}</span>
+                    </span>
+                    {/* 在這一天新增：截止日預設為這一天 */}
+                    <button
+                      onClick={() => setDialog({ defaults: { due_date: day } })}
+                      className="flex h-8 w-7 shrink-0 items-center justify-center rounded-[4px] opacity-60 hover:bg-fg/10 hover:opacity-100"
+                      aria-label={`在 ${shortDate(day)} 新增`}
+                    >
+                      +
+                    </button>
+                  </div>
                   {dayTasks.map((t) => (
-                    <p
+                    <button
                       key={t.id}
                       title={t.title}
-                      className={`truncate rounded-[4px] px-2 py-1 text-[11px] ${
+                      onClick={() => setDialog({ task: t })}
+                      className={`truncate rounded-[4px] px-2 py-1 text-left text-[11px] hover:opacity-80 ${
                         t.type === "exam" ? "bg-primary text-fg" : "bg-line"
                       } ${t.done ? "text-muted line-through opacity-60" : ""}`}
                     >
                       {t.type === "exam" && "考 · "}
                       {t.title}
-                    </p>
+                    </button>
                   ))}
                   {dayWorkouts.map((w) => (
                     <p key={w.id} className="truncate rounded-[4px] bg-secondary px-2 py-1 text-[11px] text-bg">
@@ -185,6 +205,13 @@ export default function WeekCalendar() {
           </div>
         </div>
       </div>
+
+      <TaskDialog
+        state={dialog}
+        courses={data?.courses ?? []}
+        onClose={() => setDialog(null)}
+        onChange={() => setVersion((v) => v + 1)}
+      />
     </section>
   );
 }

@@ -1,6 +1,6 @@
 // 今日頁的小型數據卡：完成進度、今日讀書時數、截止日倒數、運動
 
-import Card, { ArrowLink, BigNumber, Empty } from "@/components/Card";
+import Card, { ArrowLink, BigNumber, Empty, PlusButton } from "@/components/Card";
 import { daysBetween, shortDate, taipeiDate } from "@/lib/date";
 import type { StudySession, Task, Workout } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
@@ -67,11 +67,15 @@ export function DeadlinesCard({
   tasks,
   date,
   courses,
+  onAdd,
+  onEdit,
   className,
 }: {
   tasks: Task[];
   date: string;
   courses: CourseLite[];
+  onAdd: () => void;
+  onEdit: (task: Task) => void;
   className?: string;
 }) {
   const upcoming = tasks
@@ -80,9 +84,9 @@ export function DeadlinesCard({
     .slice(0, 6);
 
   return (
-    <Card title="Deadlines" className={className}>
+    <Card title="Deadlines" className={className} action={<PlusButton onClick={onAdd} label="新增作業或考試" />}>
       {upcoming.length === 0 ? (
-        <Empty>近期沒有截止的項目</Empty>
+        <Empty>近期沒有截止的項目，按右上角 + 新增作業或考試</Empty>
       ) : (
         <ul className="flex flex-col gap-3">
           {upcoming.map((t) => {
@@ -90,21 +94,26 @@ export function DeadlinesCard({
             const urgent = days <= 3;
             const course = courses.find((c) => c.id === t.course_id);
             return (
-              <li key={t.id} className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm">{t.title}</p>
-                  <p className="truncate text-xs text-muted">
-                    {shortDate(t.due_date!)}
-                    {course && ` · ${course.name}`}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-[4px] px-2 py-1 text-xs tabular-nums ${
-                    urgent ? "bg-primary text-fg" : "bg-line text-muted"
-                  }`}
+              <li key={t.id}>
+                <button
+                  onClick={() => onEdit(t)}
+                  className="-mx-2 flex w-[calc(100%+1rem)] items-center justify-between gap-3 rounded-[4px] px-2 py-1 text-left hover:bg-bg/40"
                 >
-                  {days === 0 ? "TODAY" : `${days}D`}
-                </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{t.title}</p>
+                    <p className="truncate text-xs text-muted">
+                      {shortDate(t.due_date!)}
+                      {course && ` · ${course.name}`}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-[4px] px-2 py-1 text-xs tabular-nums ${
+                      urgent ? "bg-primary text-fg" : "bg-line text-muted"
+                    }`}
+                  >
+                    {days === 0 ? "TODAY" : `${days}D`}
+                  </span>
+                </button>
               </li>
             );
           })}

@@ -12,10 +12,11 @@ type Props = {
   courses: CourseLite[];
   onToggle: (task: Task) => void;
   onAdd: (title: string) => Promise<void>;
+  onEdit: (task: Task) => void;
   className?: string;
 };
 
-export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, className }: Props) {
+export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, onEdit, className }: Props) {
   const [title, setTitle] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -45,13 +46,15 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
           return (
             <li key={task.id} className="flex items-center rounded-[4px] pr-2 hover:bg-bg/40">
               <Checkbox checked={task.done} onChange={() => onToggle(task)} label={task.title} />
-              <span
-                className={`flex-1 truncate text-sm transition-colors duration-200 ${
+              {/* 點標題開啟編輯視窗 */}
+              <button
+                onClick={() => onEdit(task)}
+                className={`block h-11 min-w-0 flex-1 truncate text-left text-sm leading-[44px] transition-colors duration-200 ${
                   task.done ? "text-muted line-through" : ""
                 }`}
               >
                 {task.title}
-              </span>
+              </button>
               <span className="ml-3 flex shrink-0 items-center gap-2 text-xs text-muted">
                 {course && <span className="hidden sm:inline">{course.name}</span>}
                 {task.due_date === date && !task.done && (
