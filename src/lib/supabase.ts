@@ -9,6 +9,6 @@ export const isSupabaseConfigured = Boolean(url && anonKey);
 
 // 全站共用同一個 Supabase client（登入狀態會自動存在瀏覽器的 localStorage）
 export const supabase = createClient(
-  url ?? "http://localhost:54321",
-  anonKey ?? "missing-anon-key",
+  url || "http://localhost:54321",
+  anonKey || "missing-anon-key",
 );

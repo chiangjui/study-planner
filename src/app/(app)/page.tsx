@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { usePomodoro } from "@/lib/pomodoro";
 import { useTodayData } from "@/lib/useTodayData";
 import type { Habit, Task } from "@/lib/types";
 import TopBar from "@/components/today/TopBar";
@@ -13,6 +15,13 @@ import { HabitRateCard, WeeklyStudyCard } from "@/components/today/ChartCards";
 // 今日頁：Bento Grid 儀表板
 export default function TodayPage() {
   const { data, setData, error, reload } = useTodayData();
+  const { onRecorded } = usePomodoro();
+
+  // 番茄鐘記錄了一筆讀書紀錄 → 直接加進畫面，讀書時數與長條圖會即時更新
+  useEffect(
+    () => onRecorded((session) => setData((d) => d && { ...d, sessions: [...d.sessions, session] })),
+    [onRecorded, setData],
+  );
 
   if (error) {
     return (
@@ -93,6 +102,7 @@ export default function TodayPage() {
           className="xl:row-span-2"
           courses={data.courses}
           focusMinutes={data.settings.focus_minutes}
+          breakMinutes={data.settings.break_minutes}
         />
         <ProgressCard tasks={todayTasks} />
         <StudyHoursCard sessions={data.sessions} date={date} goalHours={data.settings.daily_goal_hours} />
