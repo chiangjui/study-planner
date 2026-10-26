@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
+import PlusIcon from "@/components/PlusIcon";
 import { supabase } from "@/lib/supabase";
 import { addDays, shortDate, shortTime, startOfWeek, today, WEEKDAY_EN } from "@/lib/date";
 import { isPlannedOn, type CourseSchedule, type Task, type Workout } from "@/lib/types";
@@ -152,7 +153,7 @@ export default function WeekCalendar() {
                       className="flex h-8 w-7 shrink-0 items-center justify-center rounded-[4px] opacity-60 hover:bg-fg/10 hover:opacity-100"
                       aria-label={`在 ${shortDate(day)} 新增`}
                     >
-                      +
+                      <PlusIcon className="h-3 w-3" />
                     </button>
                   </div>
                   {dayTasks.map((t) => (
@@ -321,8 +322,8 @@ function AgendaDay({
         <span>
           {label} <span className="opacity-70">{shortDate(day)}</span>
         </span>
-        <button onClick={onAdd} className="flex h-11 w-11 items-center justify-center text-base" aria-label={`在 ${shortDate(day)} 新增`}>
-          +
+        <button onClick={onAdd} className="flex h-11 w-11 items-center justify-center" aria-label={`在 ${shortDate(day)} 新增`}>
+          <PlusIcon />
         </button>
       </div>
 

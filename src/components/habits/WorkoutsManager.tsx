@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Card, { Empty } from "@/components/Card";
 import ConfirmButton from "@/components/ConfirmButton";
+import PlusIcon from "@/components/PlusIcon";
 import { supabase } from "@/lib/supabase";
 import { shortDate, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
 import type { Workout } from "@/lib/types";
@@ -94,8 +95,8 @@ export default function WorkoutsManager() {
           />
           <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs text-muted">MIN</span>
         </label>
-        <button type="submit" className="btn-primary px-0 text-lg" aria-label="新增運動紀錄">
-          +
+        <button type="submit" className="btn-primary px-0" aria-label="新增運動紀錄">
+          <PlusIcon />
         </button>
       </form>
 
