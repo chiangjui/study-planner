@@ -27,13 +27,15 @@ export default function PomodoroCard({
   breakMinutes: number;
   className?: string;
 }) {
-  const { state, remainingMs, start, stop } = usePomodoro();
+  const { state, remainingMs, start, stop, finishEarly } = usePomodoro();
   const [courseId, setCourseId] = useState("");
 
   const running = state.phase !== "idle";
   const totalMs = running ? state.endsAt - state.startedAt : 0;
   const progress = running ? 1 - remainingMs / totalMs : 0;
   const runningCourse = running ? courses.find((c) => c.id === state.courseId) : undefined;
+  // 目前已專注幾分鐘（提早結束時會記錄這個數字）
+  const elapsedMinutes = state.phase === "focus" ? Math.floor((totalMs - remainingMs) / 60_000) : 0;
 
   return (
     <Card
@@ -61,7 +63,7 @@ export default function PomodoroCard({
           <select
             value={courseId}
             onChange={(e) => setCourseId(e.target.value)}
-            className="h-11 w-full rounded-[4px] border border-fg/20 bg-fg/10 px-3 text-base text-fg outline-none focus:border-fg/60 md:text-sm"
+            className="h-11 w-full rounded-[4px] border border-fg/20 bg-fg/10 pr-9 pl-3 text-base text-fg outline-none focus:border-fg/60 md:text-sm"
           >
             <option value="" className="bg-card">
               選擇科目…
@@ -86,10 +88,10 @@ export default function PomodoroCard({
       </div>
 
       {state.phase === "focus" ? (
-        // 放棄專注要按兩次，避免誤觸（放棄的時間不會記錄）
+        // 提早結束要按兩次，避免誤觸；已專注的時間會記錄下來
         <ConfirmButton
-          onConfirm={stop}
-          confirmLabel="再按一次放棄（不記錄）"
+          onConfirm={finishEarly}
+          confirmLabel={elapsedMinutes >= 1 ? `再按一次結束（記錄 ${elapsedMinutes} 分鐘）` : "再按一次結束（不到 1 分鐘不記錄）"}
           armedClassName="bg-fg/20"
           className="h-11 w-full rounded-[4px] border border-fg/40 text-sm uppercase tracking-[0.1em] text-fg transition-colors hover:bg-fg/10"
         >

@@ -51,7 +51,7 @@ export function StudyHoursCard({
     .reduce((sum, s) => sum + s.duration_minutes, 0);
   const hours = minutes / 60;
   return (
-    <Card title="Today's focus" className={className}>
+    <Card title="Today's focus" className={className} action={<ArrowLink href="/study" label="讀書紀錄" />}>
       <div className="mt-auto">
         <BigNumber value={hours.toFixed(1)} denominator={`${goalHours}H`} />
         <ProgressBar ratio={hours / goalHours} />

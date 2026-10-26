@@ -1,7 +1,7 @@
 // 今日頁的圖表卡：本週各科讀書時數（長條圖）、本週習慣完成率（圓環）
 // 用純 CSS / SVG 畫，不另外安裝圖表套件
 
-import Card, { Empty } from "@/components/Card";
+import Card, { ArrowLink, Empty } from "@/components/Card";
 import { daysBetween, taipeiDate } from "@/lib/date";
 import type { Habit, HabitLog, StudySession } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
@@ -36,7 +36,12 @@ export function WeeklyStudyCard({
     <Card
       title="Study this week"
       className={className}
-      action={<span className="text-xs tabular-nums text-muted">{total.toFixed(1)}H</span>}
+      action={
+        <span className="flex items-center gap-3">
+          <span className="text-xs tabular-nums text-muted">{total.toFixed(1)}H</span>
+          <ArrowLink href="/study" label="讀書紀錄" />
+        </span>
+      }
     >
       {bars.length === 0 ? (
         <Empty>本週還沒有讀書紀錄，用番茄鐘開始吧</Empty>

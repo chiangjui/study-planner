@@ -187,7 +187,7 @@ export default function CourseForm({
               <div key={i} className="flex flex-col gap-2 border-b border-line pb-4">
                 <div className="grid grid-cols-[1fr_1fr_1fr_44px] gap-2">
                   <select
-                    className={smallInput}
+                    className={`${smallInput} bg-[position:right_0.5rem_center] pr-7`}
                     value={s.weekday}
                     onChange={(e) => updateAt("schedules", i, { weekday: Number(e.target.value) })}
                     aria-label="星期"
@@ -199,7 +199,7 @@ export default function CourseForm({
                     ))}
                   </select>
                   {/* 節次：選了會自動填時間 */}
-                  <select className={smallInput} value={from} onChange={(e) => setPeriods(i, e.target.value, to)} aria-label="開始節次">
+                  <select className={`${smallInput} bg-[position:right_0.5rem_center] pr-7`} value={from} onChange={(e) => setPeriods(i, e.target.value, to)} aria-label="開始節次">
                     <option value="">節次</option>
                     {PERIODS.map((p) => (
                       <option key={p.label} value={p.label}>
@@ -207,7 +207,7 @@ export default function CourseForm({
                       </option>
                     ))}
                   </select>
-                  <select className={smallInput} value={to} onChange={(e) => setPeriods(i, from, e.target.value)} aria-label="結束節次" disabled={!from}>
+                  <select className={`${smallInput} bg-[position:right_0.5rem_center] pr-7`} value={to} onChange={(e) => setPeriods(i, from, e.target.value)} aria-label="結束節次" disabled={!from}>
                     <option value="">到</option>
                     {PERIODS.map((p) => (
                       <option key={p.label} value={p.label}>

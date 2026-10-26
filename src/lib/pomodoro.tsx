@@ -66,11 +66,26 @@ function notify(ctx: AudioContext | null, title: string, body: string) {
   }
 }
 
+// 寫入一筆讀書紀錄
+async function recordSession(courseId: string, startedAt: number, minutes: number) {
+  const { data, error } = await supabase
+    .from("study_sessions")
+    .insert({ course_id: courseId, started_at: new Date(startedAt).toISOString(), duration_minutes: minutes })
+    .select()
+    .single();
+  if (error) {
+    alert(`讀書紀錄儲存失敗：${error.message}`);
+    return null;
+  }
+  return data as StudySession;
+}
+
 type PomodoroContextValue = {
   state: TimerState;
   remainingMs: number;
   start: (courseId: string, focusMinutes: number, breakMinutes: number) => void;
-  stop: () => void;
+  stop: () => void; // 休息中：略過休息
+  finishEarly: () => void; // 專注中提早結束：已專注的分鐘數照樣記錄
   // 訂閱「新增了一筆讀書紀錄」，回傳取消訂閱的函式
   onRecorded: (fn: (session: StudySession) => void) => () => void;
 };
@@ -125,17 +140,12 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
         );
         notify(audioRef.current, "專注結束！", `已記錄 ${current.focusMinutes} 分鐘，休息一下吧`);
 
-        const { data, error } = await supabase
-          .from("study_sessions")
-          .insert({
-            course_id: current.courseId,
-            started_at: new Date(current.endsAt - current.focusMinutes * 60_000).toISOString(),
-            duration_minutes: current.focusMinutes,
-          })
-          .select()
-          .single();
-        if (error) alert(`讀書紀錄儲存失敗：${error.message}`);
-        else listeners.current.forEach((fn) => fn(data));
+        const session = await recordSession(
+          current.courseId,
+          current.endsAt - current.focusMinutes * 60_000,
+          current.focusMinutes,
+        );
+        if (session) listeners.current.forEach((fn) => fn(session));
       } else {
         persist(IDLE);
         notify(audioRef.current, "休息結束", "準備開始下一輪專注");
@@ -171,6 +181,17 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 
   const stop = useCallback(() => persist(IDLE), [persist]);
 
+  // 提早結束專注：例如 50 分鐘的專注在第 42 分鐘結束，就記錄 42 分鐘（不到 1 分鐘不記錄）
+  const finishEarly = useCallback(async () => {
+    const current = load();
+    if (current.phase !== "focus") return persist(IDLE);
+    persist(IDLE);
+    const minutes = Math.floor((Date.now() - current.startedAt) / 60_000);
+    if (minutes < 1) return;
+    const session = await recordSession(current.courseId, current.startedAt, minutes);
+    if (session) listeners.current.forEach((fn) => fn(session));
+  }, [persist]);
+
   const onRecorded = useCallback((fn: (s: StudySession) => void) => {
     listeners.current.add(fn);
     return () => {
@@ -181,7 +202,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const remainingMs = state.phase === "idle" ? 0 : Math.max(0, state.endsAt - now);
 
   return (
-    <PomodoroContext.Provider value={{ state, remainingMs, start, stop, onRecorded }}>
+    <PomodoroContext.Provider value={{ state, remainingMs, start, stop, finishEarly, onRecorded }}>
       {children}
     </PomodoroContext.Provider>
   );
