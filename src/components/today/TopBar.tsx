@@ -1,7 +1,5 @@
 "use client";
 
-import { useUser } from "@/components/AuthGuard";
-import { supabase } from "@/lib/supabase";
 import { addDays, daysBetween, shortDate, shortTime, taipeiTime, weekdayOf, WEEKDAY_EN } from "@/lib/date";
 import type { TodayData } from "@/lib/useTodayData";
 
@@ -48,19 +46,11 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
 }
 
 export default function TopBar({ data }: { data: TodayData }) {
-  const user = useUser();
   const next = findNextClass(data);
   const exam = findNextExam(data);
 
   return (
     <header className="mb-3 flex items-center gap-4 rounded-card bg-card px-5 py-4 md:gap-8">
-      {/* 3x3 點陣圖示（參考設計稿左上角） */}
-      <div className="hidden grid-cols-3 gap-[3px] md:grid" aria-hidden>
-        {Array.from({ length: 9 }).map((_, i) => (
-          <span key={i} className="h-[4px] w-[4px] rounded-full bg-fg" />
-        ))}
-      </div>
-
       <div className="grid flex-1 grid-cols-2 gap-x-6 gap-y-3 md:grid-cols-3">
         <Item label="Today">
           {shortDate(data.date)} {WEEKDAY_EN[weekdayOf(data.date) - 1]}
@@ -105,21 +95,6 @@ export default function TopBar({ data }: { data: TodayData }) {
         </Item>
       </div>
 
-      {/* 右上角：帳號縮寫 + 登出 */}
-      <div className="flex items-center gap-3">
-        <span
-          className="hidden h-8 w-8 items-center justify-center rounded-full bg-line text-xs md:flex"
-          title={user.email}
-        >
-          {user.email?.[0]?.toUpperCase()}
-        </span>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="h-11 px-2 text-[10px] uppercase tracking-[0.1em] text-muted hover:text-fg"
-        >
-          Log out
-        </button>
-      </div>
     </header>
   );
 }

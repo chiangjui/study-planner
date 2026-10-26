@@ -1,4 +1,5 @@
 import AuthGuard from "@/components/AuthGuard";
+import AppNav from "@/components/AppNav";
 import { PomodoroProvider } from "@/lib/pomodoro";
 
 // (app) 資料夾裡的所有頁面都需要登入
@@ -6,7 +7,10 @@ import { PomodoroProvider } from "@/lib/pomodoro";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
-      <PomodoroProvider>{children}</PomodoroProvider>
+      <PomodoroProvider>
+        <AppNav />
+        {children}
+      </PomodoroProvider>
     </AuthGuard>
   );
 }
