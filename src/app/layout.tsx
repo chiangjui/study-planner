@@ -10,7 +10,7 @@ export const viewport: Viewport = {
   themeColor: "#1C1C1E",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-Hant" className="h-full antialiased">
       <body className="min-h-full">{children}</body>

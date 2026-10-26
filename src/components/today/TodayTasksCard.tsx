@@ -1,0 +1,81 @@
+"use client";
+
+import { useState } from "react";
+import Card, { Empty } from "@/components/Card";
+import Checkbox from "@/components/Checkbox";
+import type { Task } from "@/lib/types";
+import type { CourseLite } from "@/lib/useTodayData";
+
+type Props = {
+  tasks: Task[]; // 已經篩選好的今日待辦
+  date: string;
+  courses: CourseLite[];
+  onToggle: (task: Task) => void;
+  onAdd: (title: string) => Promise<void>;
+  className?: string;
+};
+
+export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, className }: Props) {
+  const [title, setTitle] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  // 未完成的排前面
+  const sorted = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
+
+  async function handleAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const text = title.trim();
+    if (!text) return;
+    setAdding(true);
+    await onAdd(text);
+    setTitle("");
+    setAdding(false);
+  }
+
+  return (
+    <Card title="Today's tasks" className={className}>
+      <ul className="-mx-2 flex-1">
+        {sorted.length === 0 && (
+          <li className="px-2 py-2">
+            <Empty>今天沒有待辦，在下面新增一項吧</Empty>
+          </li>
+        )}
+        {sorted.map((task) => {
+          const course = courses.find((c) => c.id === task.course_id);
+          return (
+            <li key={task.id} className="flex items-center rounded-[4px] pr-2 hover:bg-bg/40">
+              <Checkbox checked={task.done} onChange={() => onToggle(task)} label={task.title} />
+              <span
+                className={`flex-1 truncate text-sm transition-colors duration-200 ${
+                  task.done ? "text-muted line-through" : ""
+                }`}
+              >
+                {task.title}
+              </span>
+              <span className="ml-3 flex shrink-0 items-center gap-2 text-xs text-muted">
+                {course && <span className="hidden sm:inline">{course.name}</span>}
+                {task.due_date === date && !task.done && (
+                  <span className="rounded-[4px] bg-primary px-1.5 py-0.5 text-fg">今天截止</span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* 快速新增：輸入後按 Enter，預計執行日自動設為今天 */}
+      <form onSubmit={handleAdd} className="mt-4 flex gap-2 border-t border-line pt-4">
+        <input
+          className="input"
+          placeholder="新增今日待辦…"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={adding}
+        />
+        <button type="submit" className="btn-primary w-11 shrink-0 px-0 text-lg" disabled={adding} aria-label="新增">
+          +
+        </button>
+      </form>
+    </Card>
+  );
+}
