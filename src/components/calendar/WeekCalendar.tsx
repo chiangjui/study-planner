@@ -7,7 +7,7 @@ import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
 import { useStore } from "@/lib/store";
 import { addDays, shortDate, shortTime, startOfWeek, today, WEEKDAY_EN } from "@/lib/date";
-import type { CourseSchedule, Task, Workout } from "@/lib/types";
+import { isDoneOn, type CourseSchedule, type Task, type Workout } from "@/lib/types";
 import { CATEGORY, taskOnDay } from "@/lib/categories";
 
 const HOUR_PX = 48; // 時間軸每小時的高度
@@ -139,7 +139,7 @@ export default function WeekCalendar() {
                         setDialog({ task: t });
                       }}
                       className={`truncate px-2 py-1 text-left text-[11px] text-fg hover:opacity-80 ${CATEGORY[t.type].chip} ${
-                        t.done ? "line-through opacity-50" : ""
+                        isDoneOn(t, day) ? "line-through opacity-50" : ""
                       }`}
                     >
                       {t.title}
@@ -154,7 +154,7 @@ export default function WeekCalendar() {
                         setDialog({ task: t });
                       }}
                       className={`truncate rounded-[4px] px-2 py-1 text-left text-[11px] hover:text-fg ${CATEGORY[t.type].plan} ${
-                        t.done ? "line-through opacity-50" : ""
+                        isDoneOn(t, day) ? "line-through opacity-50" : ""
                       }`}
                     >
                       {t.title}
@@ -254,7 +254,7 @@ export default function WeekCalendar() {
                           }}
                           className={`absolute right-0.5 z-10 overflow-hidden bg-card text-left hover:opacity-90 ${
                             overlapsClass ? "left-[45%]" : "left-0.5"
-                          } ${t.done ? "opacity-50 line-through" : ""}`}
+                          } ${isDoneOn(t, day) ? "opacity-50 line-through" : ""}`}
                           style={{ top: (start - startHour) * HOUR_PX, height: (end - start) * HOUR_PX }}
                         >
                           <div className={`h-full px-2 py-1 text-fg ${CATEGORY[t.type].chip}`}>
@@ -331,7 +331,7 @@ function AgendaDay({
               <button onClick={() => onEdit(t)} className="flex min-h-11 w-full items-center gap-3 text-left text-sm">
                 <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY[t.type].dot} ${isPlan ? "opacity-50" : ""}`} />
                 <span className="w-20 shrink-0 text-xs text-muted">{isPlan ? "預計執行" : CATEGORY[t.type].label}</span>
-                <span className={`truncate ${t.done ? "text-muted line-through" : ""}`}>{t.title}</span>
+                <span className={`truncate ${isDoneOn(t, day) ? "text-muted line-through" : ""}`}>{t.title}</span>
               </button>
             </li>
           );
@@ -363,7 +363,7 @@ function AgendaDay({
             <li key={r.t.id}>
               <button
                 onClick={() => onEdit(r.t)}
-                className={`flex min-h-11 w-full items-center gap-3 text-left text-sm ${r.t.done ? "text-muted line-through" : ""}`}
+                className={`flex min-h-11 w-full items-center gap-3 text-left text-sm ${isDoneOn(r.t, day) ? "text-muted line-through" : ""}`}
               >
                 <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY[r.t.type].dot}`} />
                 <span className="w-[86px] shrink-0 text-xs tabular-nums text-muted">

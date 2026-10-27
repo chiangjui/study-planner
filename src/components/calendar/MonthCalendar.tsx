@@ -8,11 +8,11 @@ import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
 import { useStore } from "@/lib/store";
 import { addDays, addMonths, shortDate, shortTime, startOfMonth, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
-import type { Task } from "@/lib/types";
+import { isDoneOn, type Task } from "@/lib/types";
 import { CATEGORY, taskOnDay, type Category } from "@/lib/categories";
 
 // 一天裡的一個事件：類別決定顏色；plan = 預計執行的日子（虛線框）
-type DayEvent = { key: string; label: string; cat: Category; plan: boolean; task?: Task };
+type DayEvent = { key: string; label: string; cat: Category; plan: boolean; done: boolean; task?: Task };
 
 export default function MonthCalendar() {
   const todayStr = today();
@@ -42,11 +42,12 @@ export default function MonthCalendar() {
         label: `${how === "event" && t.due_date === day && t.start_time ? `${shortTime(t.start_time)} ` : ""}${t.title}`,
         cat: t.type as Category,
         plan: how === "plan",
+        done: isDoneOn(t, day), // 跨多天的待辦：只有勾過的那一天會劃掉
         task: t,
       }));
     const workouts = data.workouts
       .filter((w) => w.workout_date === day)
-      .map((w) => ({ key: `w-${w.id}`, label: `${w.kind} ${w.duration_minutes}m`, cat: "workout" as const, plan: false }));
+      .map((w) => ({ key: `w-${w.id}`, label: `${w.kind} ${w.duration_minutes}m`, cat: "workout" as const, plan: false, done: false }));
     return [...tasks, ...workouts];
   }
 
@@ -58,7 +59,7 @@ export default function MonthCalendar() {
     setSelected(next === startOfMonth(todayStr) ? todayStr : next);
   }
 
-  const done = (e: DayEvent) => Boolean(e.task?.done);
+  const done = (e: DayEvent) => e.done;
   const selectedEvents = eventsOn(selected);
 
   return (

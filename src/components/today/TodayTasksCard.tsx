@@ -6,7 +6,7 @@ import Checkbox from "@/components/Checkbox";
 import ConfirmButton from "@/components/ConfirmButton";
 import PlusIcon from "@/components/PlusIcon";
 import { daysBetween, shortTime } from "@/lib/date";
-import type { Task } from "@/lib/types";
+import { isDoneOn, type Task } from "@/lib/types";
 import { todayRemoval } from "@/lib/tasks";
 import type { CourseLite } from "@/lib/useTodayData";
 
@@ -25,9 +25,10 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
   const [title, setTitle] = useState("");
   const [adding, setAdding] = useState(false);
 
-  // 未完成的排前面；有時間的依時間排
+  // 今天未完成的排前面；有時間的依時間排
+  const doneToday = (t: Task) => isDoneOn(t, date);
   const sorted = [...tasks].sort(
-    (a, b) => Number(a.done) - Number(b.done) || (a.start_time ?? "99").localeCompare(b.start_time ?? "99"),
+    (a, b) => Number(doneToday(a)) - Number(doneToday(b)) || (a.start_time ?? "99").localeCompare(b.start_time ?? "99"),
   );
 
   async function handleAdd(e: React.FormEvent) {
@@ -52,12 +53,12 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
           const course = courses.find((c) => c.id === task.course_id);
           return (
             <li key={task.id} className="group flex items-center rounded-[4px] hover:bg-bg/40">
-              <Checkbox checked={task.done} onChange={() => onToggle(task)} label={task.title} />
+              <Checkbox checked={doneToday(task)} onChange={() => onToggle(task)} label={task.title} />
               {/* 點標題開啟編輯視窗 */}
               <button
                 onClick={() => onEdit(task)}
                 className={`block h-11 min-w-0 flex-1 truncate text-left text-sm leading-[44px] transition-colors duration-200 ${
-                  task.done ? "text-muted line-through" : ""
+                  doneToday(task) ? "text-muted line-through" : ""
                 }`}
               >
                 {task.title}
@@ -73,7 +74,7 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
                 {task.due_date === date && task.start_time && (
                   <span className="tabular-nums text-fg">{shortTime(task.start_time)}</span>
                 )}
-                {task.due_date === date && !task.done && (
+                {task.due_date === date && !doneToday(task) && (
                   <span className="rounded-[4px] bg-primary px-1.5 py-0.5 text-fg">今天截止</span>
                 )}
               </span>

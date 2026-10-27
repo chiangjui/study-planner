@@ -69,6 +69,7 @@ create table public.tasks (
   start_time       time,
   end_time         time,
   done             boolean not null default false,
+  done_dates       date[] not null default '{}', -- 跨多天的待辦：已完成的日期
   created_at       timestamptz not null default now(),
   check (
     (planned_date is null and planned_end_date is null)

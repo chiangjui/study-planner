@@ -2,7 +2,7 @@
 
 import Card, { ArrowLink, BigNumber, Empty, PlusButton } from "@/components/Card";
 import { daysBetween, shortDate, taipeiDate } from "@/lib/date";
-import type { StudySession, Task, Workout } from "@/lib/types";
+import { isDoneOn, type StudySession, type Task, type Workout } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
 
 // 細進度條
@@ -20,8 +20,9 @@ function ProgressBar({ ratio, track = "bg-line", fill = "bg-primary" }: { ratio:
 // ---------------------------------------------------------------------
 // 完成進度：已完成 / 總數
 // ---------------------------------------------------------------------
-export function ProgressCard({ tasks, className }: { tasks: Task[]; className?: string }) {
-  const done = tasks.filter((t) => t.done).length;
+export function ProgressCard({ tasks, date, className }: { tasks: Task[]; date: string; className?: string }) {
+  // 跨多天的待辦：今天那一天勾了就算今天完成
+  const done = tasks.filter((t) => isDoneOn(t, date)).length;
   return (
     <Card title="Completed tasks" className={className}>
       <div className="mt-auto">

@@ -47,7 +47,8 @@ export type Task = {
   planned_end_date: string | null; // 預計執行最後一天（可以跨多天）
   start_time: string | null; // 有時間的話會排進行事曆時間軸
   end_time: string | null;
-  done: boolean;
+  done: boolean; // 整筆完成
+  done_dates?: string[]; // 跨多天的待辦：已完成的日期（舊資料可能沒有這個欄位）
   created_at: string;
 };
 
@@ -95,6 +96,21 @@ export type UserSettings = {
 export function isPlannedOn(task: Task, date: string) {
   if (!task.planned_date) return false;
   return task.planned_date <= date && (task.planned_end_date ?? task.planned_date) >= date;
+}
+
+// 跨多天的預計執行（例如 27–29）
+export function isMultiDayPlan(task: Task) {
+  return Boolean(task.planned_date && task.planned_end_date && task.planned_end_date > task.planned_date);
+}
+
+// 這一天的勾選是「只代表這一天」：跨多天的預計執行、而且這天不是截止日
+export function isDayLevel(task: Task, date: string) {
+  return isMultiDayPlan(task) && isPlannedOn(task, date) && task.due_date !== date;
+}
+
+// 這個待辦在某一天算不算已完成：整筆完成，或那一天已勾選
+export function isDoneOn(task: Task, date: string) {
+  return task.done || (task.done_dates ?? []).includes(date);
 }
 
 // 還沒存過設定時使用的預設值（與 schema.sql 的 default 一致）

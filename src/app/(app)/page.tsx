@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { deleteRow, insertRow, saveSettings, updateRow } from "@/lib/store";
 import { useTodayData } from "@/lib/useTodayData";
-import { isPlannedOn, type Habit, type Task } from "@/lib/types";
+import { isDayLevel, isPlannedOn, type Habit, type Task } from "@/lib/types";
 import { skipDayPatch, todayRemoval } from "@/lib/tasks";
 import StoreLoading from "@/components/StoreLoading";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
@@ -27,8 +27,16 @@ export default function TodayPage() {
   const todayTasks = data.tasks.filter((t) => isPlannedOn(t, date) || t.due_date === date);
 
   // 勾選／取消待辦
+  // 跨多天的預計執行：只勾今天這一天（記在 done_dates）；其他情況：整筆完成
   function toggleTask(task: Task) {
-    updateRow("tasks", task.id, { done: !task.done });
+    if (isDayLevel(task, date)) {
+      const days = task.done_dates ?? [];
+      updateRow("tasks", task.id, {
+        done_dates: days.includes(date) ? days.filter((d) => d !== date) : [...days, date],
+      });
+    } else {
+      updateRow("tasks", task.id, { done: !task.done });
+    }
   }
 
   // 快速新增：預計執行日設為今天
@@ -85,7 +93,7 @@ export default function TodayPage() {
           breakMinutes={data.settings.break_minutes}
           onTimesChange={(focus, brk) => saveSettings({ focus_minutes: focus, break_minutes: brk })}
         />
-        <ProgressCard tasks={todayTasks} />
+        <ProgressCard tasks={todayTasks} date={date} />
         <StudyHoursCard sessions={data.sessions} date={date} goalHours={data.settings.daily_goal_hours} />
         <DeadlinesCard
           className="xl:row-span-2"
