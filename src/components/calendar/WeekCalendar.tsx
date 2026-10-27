@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
 import { useStore } from "@/lib/store";
@@ -10,6 +11,9 @@ import type { CourseSchedule, Task, Workout } from "@/lib/types";
 import { CATEGORY, taskOnDay } from "@/lib/categories";
 
 const HOUR_PX = 48; // 時間軸每小時的高度
+
+// 8 → "08:00"
+const hourLabel = (h: number) => `${String(Math.min(h, 23)).padStart(2, "0")}:00`;
 
 // "13:10:00" → 13.1667（小時）
 function toHours(time: string) {
@@ -20,6 +24,7 @@ function toHours(time: string) {
 export default function WeekCalendar() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
   const [dialog, setDialog] = useState<TaskDialogState>(null);
+  const router = useRouter();
   const todayStr = today();
 
   // 資料來自本機資料庫（離線也能看）；下面依日期篩選
@@ -109,29 +114,30 @@ export default function WeekCalendar() {
               const dayPlans = planChips(day);
               const dayWorkouts = data?.workouts.filter((w) => w.workout_date === day) ?? [];
               return (
-                <div key={day} className="flex min-w-0 flex-col gap-1 pb-2">
+                // 點兩下空白處：新增這一天的全天事件（沒有時間）
+                <div
+                  key={day}
+                  onDoubleClick={() => setDialog({ defaults: { due_date: day } })}
+                  title="點兩下新增"
+                  className="flex min-w-0 cursor-default select-none flex-col gap-1 pb-2"
+                >
                   <div
-                    className={`flex min-w-0 items-center justify-between gap-1 rounded-[4px] pl-2 text-xs tabular-nums ${
+                    className={`flex h-8 min-w-0 items-center rounded-[4px] px-2 text-xs tabular-nums ${
                       isToday ? "bg-primary text-fg" : "text-muted"
                     }`}
                   >
                     <span className="truncate whitespace-nowrap">
                       {WEEKDAY_EN[i]} <span className="opacity-70">{shortDate(day)}</span>
                     </span>
-                    {/* 在這一天新增：截止日預設為這一天 */}
-                    <button
-                      onClick={() => setDialog({ defaults: { due_date: day } })}
-                      className="flex h-8 w-7 shrink-0 items-center justify-center rounded-[4px] opacity-60 hover:bg-fg/10 hover:opacity-100"
-                      aria-label={`在 ${shortDate(day)} 新增`}
-                    >
-                      <PlusIcon />
-                    </button>
                   </div>
                   {dayTasks.map((t) => (
                     <button
                       key={t.id}
-                      title={t.title}
-                      onClick={() => setDialog({ task: t })}
+                      title={`${t.title}（點兩下編輯）`}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setDialog({ task: t });
+                      }}
                       className={`truncate px-2 py-1 text-left text-[11px] text-fg hover:opacity-80 ${CATEGORY[t.type].chip} ${
                         t.done ? "line-through opacity-50" : ""
                       }`}
@@ -142,8 +148,11 @@ export default function WeekCalendar() {
                   {dayPlans.map((t) => (
                     <button
                       key={`plan-${t.id}`}
-                      title={`預計執行：${t.title}`}
-                      onClick={() => setDialog({ task: t })}
+                      title={`預計執行：${t.title}（點兩下編輯）`}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        setDialog({ task: t });
+                      }}
                       className={`truncate rounded-[4px] px-2 py-1 text-left text-[11px] hover:text-fg ${CATEGORY[t.type].plan} ${
                         t.done ? "line-through opacity-50" : ""
                       }`}
@@ -152,7 +161,11 @@ export default function WeekCalendar() {
                     </button>
                   ))}
                   {dayWorkouts.map((w) => (
-                    <p key={w.id} className={`truncate px-2 py-1 text-[11px] text-fg ${CATEGORY.workout.chip}`}>
+                    <p
+                      key={w.id}
+                      onDoubleClick={(e) => e.stopPropagation()}
+                      className={`truncate px-2 py-1 text-[11px] text-fg ${CATEGORY.workout.chip}`}
+                    >
                       {w.kind} {w.duration_minutes}m
                     </p>
                   ))}
@@ -176,9 +189,16 @@ export default function WeekCalendar() {
               const weekday = i + 1;
               const isToday = day === todayStr;
               return (
+                // 點兩下時間軸：新增有時間的事件，預設為點的那一個小時（例如點在 8:00–9:00 之間 → 8:00–9:00）
                 <div
                   key={day}
-                  className={`relative ${isToday ? "bg-bg/40" : ""}`}
+                  onDoubleClick={(e) => {
+                    const y = e.clientY - e.currentTarget.getBoundingClientRect().top;
+                    const h = startHour + Math.floor(y / HOUR_PX);
+                    setDialog({ defaults: { due_date: day, start_time: hourLabel(h), end_time: hourLabel(h + 1) } });
+                  }}
+                  title="點兩下新增"
+                  className={`relative cursor-default select-none ${isToday ? "bg-bg/40" : ""}`}
                   style={{ height: hours.length * HOUR_PX }}
                 >
                   {/* 每小時的分隔線 */}
@@ -194,9 +214,14 @@ export default function WeekCalendar() {
                       const top = (toHours(s.start_time) - startHour) * HOUR_PX;
                       const height = (toHours(s.end_time) - toHours(s.start_time)) * HOUR_PX;
                       return (
-                        <Link
+                        // 點兩下課程：開啟課程詳細頁
+                        <div
                           key={s.id}
-                          href={`/course?id=${s.course_id}`}
+                          title={`${course?.name}（點兩下開啟課程）`}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/course?id=${s.course_id}`);
+                          }}
                           className={`absolute inset-x-0.5 overflow-hidden px-2 py-1 transition-opacity hover:opacity-80 ${CATEGORY.class.chip}`}
                           style={{ top, height }}
                         >
@@ -205,7 +230,7 @@ export default function WeekCalendar() {
                             {shortTime(s.start_time)}
                             {s.room && ` · ${s.room}`}
                           </p>
-                        </Link>
+                        </div>
                       );
                     })}
 
@@ -222,7 +247,11 @@ export default function WeekCalendar() {
                         // 外層用卡片底色（不透明），和課程重疊時才看得清楚
                         <button
                           key={t.id}
-                          onClick={() => setDialog({ task: t })}
+                          title={`${t.title}（點兩下編輯）`}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            setDialog({ task: t });
+                          }}
                           className={`absolute right-0.5 z-10 overflow-hidden bg-card text-left hover:opacity-90 ${
                             overlapsClass ? "left-[45%]" : "left-0.5"
                           } ${t.done ? "opacity-50 line-through" : ""}`}

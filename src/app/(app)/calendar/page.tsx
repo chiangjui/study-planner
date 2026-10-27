@@ -39,7 +39,7 @@ export default function CalendarPage() {
             {CATEGORY[c].label}
           </span>
         ))}
-        {view === "month" && <span className="ml-auto hidden md:inline">點兩下新增／編輯</span>}
+        <span className="ml-auto hidden md:inline">點兩下新增／編輯</span>
       </div>
 
       {view === "week" ? <WeekCalendar /> : <MonthCalendar />}
