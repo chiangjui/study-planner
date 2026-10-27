@@ -7,3 +7,12 @@ export default function PlusIcon() {
     </svg>
   );
 }
+
+// 減號（−）圖示：和十字同樣比例
+export function MinusIcon() {
+  return (
+    <svg viewBox="0 0 18 18" className="h-[1em] w-[1em]" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+      <path d="M5.625 9h6.75" />
+    </svg>
+  );
+}

@@ -111,6 +111,9 @@ export default function TodayPage() {
           courses={data.courses}
           focusMinutes={data.settings.focus_minutes}
           breakMinutes={data.settings.break_minutes}
+          onTimesChange={(focus, brk) =>
+            setData((d) => d && { ...d, settings: { ...d.settings, focus_minutes: focus, break_minutes: brk } })
+          }
         />
         <ProgressCard tasks={todayTasks} />
         <StudyHoursCard sessions={data.sessions} date={date} goalHours={data.settings.daily_goal_hours} />
