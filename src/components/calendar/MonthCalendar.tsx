@@ -1,0 +1,262 @@
+"use client";
+
+// 月行事曆：只顯示課表以外的事件（待辦、考試、行程、預計執行、運動）
+
+import { useEffect, useState } from "react";
+import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
+import PlusIcon from "@/components/PlusIcon";
+import { supabase } from "@/lib/supabase";
+import { addDays, addMonths, shortDate, shortTime, startOfMonth, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
+import { isPlannedOn, type Task, type Workout } from "@/lib/types";
+import type { CourseLite } from "@/lib/useTodayData";
+
+type MonthData = { courses: CourseLite[]; tasks: Task[]; workouts: Workout[] };
+
+// 一天裡的一個事件
+type DayEvent =
+  | { kind: "due" | "exam" | "plan"; key: string; label: string; task: Task }
+  | { kind: "workout"; key: string; label: string };
+
+async function fetchRange(from: string, to: string): Promise<MonthData> {
+  const [courses, tasks, workouts] = await Promise.all([
+    supabase.from("courses").select("id, name"),
+    // 截止日在範圍內、或預計執行和範圍有重疊
+    supabase
+      .from("tasks")
+      .select("*")
+      .or(
+        `and(due_date.gte.${from},due_date.lte.${to}),and(planned_date.lte.${to},planned_end_date.gte.${from}),and(planned_date.gte.${from},planned_date.lte.${to})`,
+      ),
+    supabase.from("workouts").select("*").gte("workout_date", from).lte("workout_date", to),
+  ]);
+  return { courses: courses.data ?? [], tasks: tasks.data ?? [], workouts: workouts.data ?? [] };
+}
+
+// 每種事件的顏色：考試主色、截止灰底、預計執行虛線、運動灰米色
+const CHIP_CLASS: Record<DayEvent["kind"], string> = {
+  exam: "bg-primary text-fg",
+  due: "bg-line",
+  plan: "border border-dashed border-muted/50 text-muted",
+  workout: "bg-secondary text-bg",
+};
+const DOT_CLASS: Record<DayEvent["kind"], string> = {
+  exam: "bg-primary",
+  due: "bg-fg",
+  plan: "bg-muted",
+  workout: "bg-secondary",
+};
+
+export default function MonthCalendar() {
+  const todayStr = today();
+  const [month, setMonth] = useState(() => startOfMonth(todayStr)); // 這個月的第一天
+  const [data, setData] = useState<MonthData | null>(null);
+  const [selected, setSelected] = useState(todayStr); // 手機版：點選的那一天
+  const [dialog, setDialog] = useState<TaskDialogState>(null);
+  const [version, setVersion] = useState(0); // 新增／編輯後 +1，重新讀取
+
+  // 月曆格子：從這個月第一天所在那週的週一，到最後一天所在那週的週日
+  const monthEnd = addDays(addMonths(month, 1), -1);
+  const gridStart = startOfWeek(month);
+  const gridEnd = addDays(startOfWeek(monthEnd), 6);
+  const days: string[] = [];
+  for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchRange(gridStart, gridEnd).then((d) => !cancelled && setData(d));
+    return () => {
+      cancelled = true;
+    };
+  }, [gridStart, gridEnd, version]);
+
+  function eventsOn(day: string): DayEvent[] {
+    if (!data) return [];
+    const due = data.tasks
+      .filter((t) => t.due_date === day)
+      .sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""))
+      .map((t) => ({
+        kind: t.type === "exam" ? ("exam" as const) : ("due" as const),
+        key: `due-${t.id}`,
+        label: `${t.start_time ? `${shortTime(t.start_time)} ` : ""}${t.title}`,
+        task: t,
+      }));
+    const plans = data.tasks
+      .filter((t) => isPlannedOn(t, day) && t.due_date !== day)
+      .map((t) => ({ kind: "plan" as const, key: `plan-${t.id}`, label: t.title, task: t }));
+    const workouts = data.workouts
+      .filter((w) => w.workout_date === day)
+      .map((w) => ({ kind: "workout" as const, key: `w-${w.id}`, label: `${w.kind} ${w.duration_minutes}m` }));
+    return [...due, ...plans, ...workouts];
+  }
+
+  function changeMonth(n: number) {
+    const next = addMonths(month, n);
+    setMonth(next);
+    setSelected(next === startOfMonth(todayStr) ? todayStr : next);
+  }
+
+  const done = (e: DayEvent) => e.kind !== "workout" && e.task.done;
+  const selectedEvents = eventsOn(selected);
+
+  return (
+    // 手機上內距與格子間距小一點，讓每一格至少 44px 寬
+    <section className="rounded-card bg-card p-3 md:p-5">
+      {/* 月份切換 */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm tabular-nums">
+          {month.slice(0, 4)} / {Number(month.slice(5, 7))}
+        </p>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setDialog({ defaults: { due_date: selected } })} className="btn-primary mr-2 whitespace-nowrap">
+            + New
+          </button>
+          <NavButton onClick={() => changeMonth(-1)} label="上個月">‹</NavButton>
+          <button
+            onClick={() => {
+              setMonth(startOfMonth(todayStr));
+              setSelected(todayStr);
+            }}
+            className="h-11 whitespace-nowrap rounded-[4px] px-3 text-xs uppercase tracking-[0.1em] text-muted hover:bg-line hover:text-fg"
+          >
+            This month
+          </button>
+          <NavButton onClick={() => changeMonth(1)} label="下個月">›</NavButton>
+        </div>
+      </div>
+
+      {/* 星期列 */}
+      <div className="grid grid-cols-7 gap-0.5 pb-1 md:gap-1">
+        {WEEKDAY_EN.map((d) => (
+          <p key={d} className="px-1 text-[10px] uppercase tracking-[0.1em] text-muted">
+            {d}
+          </p>
+        ))}
+      </div>
+
+      {/* 月曆格子 */}
+      <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+        {days.map((day) => {
+          const inMonth = day >= month && day <= monthEnd;
+          const isToday = day === todayStr;
+          const events = eventsOn(day);
+          return (
+            <div key={day} className={`min-w-0 rounded-[4px] ${inMonth ? "bg-bg/50" : "bg-bg/20"}`}>
+              {/* 手機：日期 + 小圓點，點了在下方列出當天事件 */}
+              <button
+                onClick={() => setSelected(day)}
+                className={`flex h-12 w-full flex-col items-center justify-center gap-1 rounded-[4px] md:hidden ${
+                  selected === day ? "ring-1 ring-fg/60" : ""
+                }`}
+                aria-label={shortDate(day)}
+              >
+                <span
+                  className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs tabular-nums ${
+                    isToday ? "bg-primary text-fg" : inMonth ? "" : "text-muted/50"
+                  }`}
+                >
+                  {Number(day.slice(8))}
+                </span>
+                <span className="flex h-1.5 gap-0.5">
+                  {events.slice(0, 3).map((e) => (
+                    <span key={e.key} className={`h-1.5 w-1.5 rounded-full ${DOT_CLASS[e.kind]}`} />
+                  ))}
+                </span>
+              </button>
+
+              {/* 桌機：直接列出事件 */}
+              <div className="hidden min-h-28 flex-col gap-1 p-1.5 md:flex">
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs tabular-nums ${
+                      isToday ? "bg-primary text-fg" : inMonth ? "text-fg" : "text-muted/50"
+                    }`}
+                  >
+                    {Number(day.slice(8))}
+                  </span>
+                  <button
+                    onClick={() => setDialog({ defaults: { due_date: day } })}
+                    className="flex h-6 w-6 items-center justify-center rounded-[4px] text-xs text-muted opacity-60 hover:bg-fg/10 hover:opacity-100"
+                    aria-label={`在 ${shortDate(day)} 新增`}
+                  >
+                    <PlusIcon />
+                  </button>
+                </div>
+                {events.slice(0, 3).map((e) => (
+                  <button
+                    key={e.key}
+                    title={e.label}
+                    disabled={e.kind === "workout"}
+                    onClick={() => e.kind !== "workout" && setDialog({ task: e.task })}
+                    className={`truncate rounded-[4px] px-1.5 py-0.5 text-left text-[11px] enabled:hover:opacity-80 ${
+                      CHIP_CLASS[e.kind]
+                    } ${done(e) ? "line-through opacity-50" : ""}`}
+                  >
+                    {e.kind === "exam" && "考 · "}
+                    {e.label}
+                  </button>
+                ))}
+                {events.length > 3 && <p className="px-1.5 text-[10px] text-muted">+{events.length - 3}</p>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* 手機：點選那一天的事件 */}
+      <div className="mt-4 md:hidden">
+        <div className="flex items-center justify-between border-b border-line text-xs tabular-nums text-muted">
+          <span>
+            {WEEKDAY_EN[weekdayOf(selected) - 1]} {shortDate(selected)}
+          </span>
+          <button
+            onClick={() => setDialog({ defaults: { due_date: selected } })}
+            className="flex h-11 w-11 items-center justify-center text-base text-fg"
+            aria-label={`在 ${shortDate(selected)} 新增`}
+          >
+            <PlusIcon />
+          </button>
+        </div>
+        {selectedEvents.length === 0 ? (
+          <p className="py-3 text-xs text-muted">沒有安排</p>
+        ) : (
+          <ul>
+            {selectedEvents.map((e) => (
+              <li key={e.key}>
+                <button
+                  disabled={e.kind === "workout"}
+                  onClick={() => e.kind !== "workout" && setDialog({ task: e.task })}
+                  className="flex min-h-11 w-full items-center gap-3 text-left text-sm"
+                >
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_CLASS[e.kind]}`} />
+                  <span className="w-16 shrink-0 text-xs text-muted">
+                    {{ exam: "考試", due: "截止", plan: "預計執行", workout: "運動" }[e.kind]}
+                  </span>
+                  <span className={`truncate ${done(e) ? "text-muted line-through" : ""}`}>{e.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <TaskDialog
+        state={dialog}
+        courses={data?.courses ?? []}
+        onClose={() => setDialog(null)}
+        onChange={() => setVersion((v) => v + 1)}
+      />
+    </section>
+  );
+}
+
+function NavButton({ onClick, label, children }: { onClick: () => void; label: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      className="flex h-11 w-11 items-center justify-center rounded-[4px] text-lg text-muted hover:bg-line hover:text-fg"
+    >
+      {children}
+    </button>
+  );
+}

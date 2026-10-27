@@ -87,7 +87,7 @@ export default function WeekCalendar() {
         <div className="flex items-center gap-1">
           <button
             onClick={() => setDialog({ defaults: { due_date: todayStr } })}
-            className="btn-primary mr-2"
+            className="btn-primary mr-2 whitespace-nowrap"
           >
             + New
           </button>
@@ -96,7 +96,7 @@ export default function WeekCalendar() {
           </WeekButton>
           <button
             onClick={() => setWeekStart(startOfWeek(today()))}
-            className="h-11 rounded-[4px] px-3 text-xs uppercase tracking-[0.1em] text-muted hover:bg-line hover:text-fg"
+            className="h-11 whitespace-nowrap rounded-[4px] px-3 text-xs uppercase tracking-[0.1em] text-muted hover:bg-line hover:text-fg"
           >
             This week
           </button>

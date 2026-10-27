@@ -65,3 +65,15 @@ export function shortTime(time: string): string {
 export function shortDate(date: string): string {
   return `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
 }
+
+// 這個日期所在月份的第一天，例如 "2026-10-27" → "2026-10-01"
+export function startOfMonth(date: string): string {
+  return `${date.slice(0, 8)}01`;
+}
+
+// 月份加減（回傳那個月的第一天）
+export function addMonths(date: string, months: number): string {
+  const d = new Date(`${startOfMonth(date)}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
