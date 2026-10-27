@@ -25,6 +25,14 @@
   --color-fg: #f2f2f2; /* 主要文字 */
   --color-muted: #8a8a8e; /* 次要文字 */
 
+  /* 行事曆事件類別：和霧藍同樣低飽和、相近明度，只換色相，彼此協調 */
+  --color-cat-class: #5b6e91; /* 課程：霧藍 */
+  --color-cat-exam: #a06a6f; /* 考試：灰玫瑰 */
+  --color-cat-homework: #6f8b74; /* 作業：鼠尾草綠 */
+  --color-cat-report: #85769c; /* 報告：灰紫 */
+  --color-cat-general: #a3895a; /* 一般：赭黃 */
+  --color-cat-workout: #5f8a8b; /* 運動：灰青 */
+
   /* Proto Mono 沒有中文字，中文會自動 fallback 到後面的字體 */
   --font-sans: "Proto Mono", "PingFang TC", "Noto Sans TC", sans-serif;
 

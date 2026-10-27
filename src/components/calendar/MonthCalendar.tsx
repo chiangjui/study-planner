@@ -1,32 +1,18 @@
 "use client";
 
 // 月行事曆：只顯示課表以外的事件（待辦、考試、行程、預計執行、運動）
+// 桌機：在格子空白處點兩下新增、在事件上點兩下編輯；手機：點日期後在下方列表新增或編輯
 
 import { useState } from "react";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
 import { useStore } from "@/lib/store";
 import { addDays, addMonths, shortDate, shortTime, startOfMonth, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
-import { isPlannedOn, type Task } from "@/lib/types";
+import type { Task } from "@/lib/types";
+import { CATEGORY, taskOnDay, type Category } from "@/lib/categories";
 
-// 一天裡的一個事件
-type DayEvent =
-  | { kind: "due" | "exam" | "plan"; key: string; label: string; task: Task }
-  | { kind: "workout"; key: string; label: string };
-
-// 每種事件的顏色：考試主色、截止灰底、預計執行虛線、運動灰米色
-const CHIP_CLASS: Record<DayEvent["kind"], string> = {
-  exam: "bg-primary text-fg",
-  due: "bg-line",
-  plan: "border border-dashed border-muted/50 text-muted",
-  workout: "bg-secondary text-bg",
-};
-const DOT_CLASS: Record<DayEvent["kind"], string> = {
-  exam: "bg-primary",
-  due: "bg-fg",
-  plan: "bg-muted",
-  workout: "bg-secondary",
-};
+// 一天裡的一個事件：類別決定顏色；plan = 預計執行的日子（虛線框）
+type DayEvent = { key: string; label: string; cat: Category; plan: boolean; task?: Task };
 
 export default function MonthCalendar() {
   const todayStr = today();
@@ -46,23 +32,25 @@ export default function MonthCalendar() {
 
   function eventsOn(day: string): DayEvent[] {
     if (!data) return [];
-    const due = data.tasks
-      .filter((t) => t.due_date === day)
-      .sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""))
-      .map((t) => ({
-        kind: t.type === "exam" ? ("exam" as const) : ("due" as const),
-        key: `due-${t.id}`,
-        label: `${t.start_time ? `${shortTime(t.start_time)} ` : ""}${t.title}`,
+    const tasks = data.tasks
+      .map((t) => ({ t, how: taskOnDay(t, day) }))
+      .filter((x) => x.how)
+      // 當天的事件在前（依時間），預計執行的在後
+      .sort((a, b) => (a.how === b.how ? (a.t.start_time ?? "").localeCompare(b.t.start_time ?? "") : a.how === "event" ? -1 : 1))
+      .map(({ t, how }) => ({
+        key: `${how}-${t.id}`,
+        label: `${how === "event" && t.due_date === day && t.start_time ? `${shortTime(t.start_time)} ` : ""}${t.title}`,
+        cat: t.type as Category,
+        plan: how === "plan",
         task: t,
       }));
-    const plans = data.tasks
-      .filter((t) => isPlannedOn(t, day) && t.due_date !== day)
-      .map((t) => ({ kind: "plan" as const, key: `plan-${t.id}`, label: t.title, task: t }));
     const workouts = data.workouts
       .filter((w) => w.workout_date === day)
-      .map((w) => ({ kind: "workout" as const, key: `w-${w.id}`, label: `${w.kind} ${w.duration_minutes}m` }));
-    return [...due, ...plans, ...workouts];
+      .map((w) => ({ key: `w-${w.id}`, label: `${w.kind} ${w.duration_minutes}m`, cat: "workout" as const, plan: false }));
+    return [...tasks, ...workouts];
   }
+
+  const chipClass = (e: DayEvent) => (e.plan ? CATEGORY[e.cat].plan : `${CATEGORY[e.cat].chip} text-fg`);
 
   function changeMonth(n: number) {
     const next = addMonths(month, n);
@@ -70,7 +58,7 @@ export default function MonthCalendar() {
     setSelected(next === startOfMonth(todayStr) ? todayStr : next);
   }
 
-  const done = (e: DayEvent) => e.kind !== "workout" && e.task.done;
+  const done = (e: DayEvent) => Boolean(e.task?.done);
   const selectedEvents = eventsOn(selected);
 
   return (
@@ -133,14 +121,18 @@ export default function MonthCalendar() {
                 </span>
                 <span className="flex h-1.5 gap-0.5">
                   {events.slice(0, 3).map((e) => (
-                    <span key={e.key} className={`h-1.5 w-1.5 rounded-full ${DOT_CLASS[e.kind]}`} />
+                    <span key={e.key} className={`h-1.5 w-1.5 rounded-full ${CATEGORY[e.cat].dot}`} />
                   ))}
                 </span>
               </button>
 
-              {/* 桌機：直接列出事件 */}
-              <div className="hidden min-h-28 flex-col gap-1 p-1.5 md:flex">
-                <div className="flex items-center justify-between">
+              {/* 桌機：直接列出事件；空白處點兩下新增 */}
+              <div
+                onDoubleClick={() => setDialog({ defaults: { due_date: day } })}
+                title="點兩下新增"
+                className="hidden min-h-28 cursor-default select-none flex-col gap-1 p-1.5 md:flex"
+              >
+                <div className="flex items-center">
                   <span
                     className={`flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs tabular-nums ${
                       isToday ? "bg-primary text-fg" : inMonth ? "text-fg" : "text-muted/50"
@@ -148,27 +140,22 @@ export default function MonthCalendar() {
                   >
                     {Number(day.slice(8))}
                   </span>
-                  <button
-                    onClick={() => setDialog({ defaults: { due_date: day } })}
-                    className="flex h-6 w-6 items-center justify-center rounded-[4px] text-xs text-muted opacity-60 hover:bg-fg/10 hover:opacity-100"
-                    aria-label={`在 ${shortDate(day)} 新增`}
-                  >
-                    <PlusIcon />
-                  </button>
                 </div>
                 {events.slice(0, 3).map((e) => (
-                  <button
+                  <div
                     key={e.key}
-                    title={e.label}
-                    disabled={e.kind === "workout"}
-                    onClick={() => e.kind !== "workout" && setDialog({ task: e.task })}
-                    className={`truncate rounded-[4px] px-1.5 py-0.5 text-left text-[11px] enabled:hover:opacity-80 ${
-                      CHIP_CLASS[e.kind]
-                    } ${done(e) ? "line-through opacity-50" : ""}`}
+                    title={e.task ? `${e.label}（點兩下編輯）` : e.label}
+                    // 在事件上點兩下 → 編輯（不會觸發格子的「新增」）
+                    onDoubleClick={(ev) => {
+                      ev.stopPropagation();
+                      if (e.task) setDialog({ task: e.task });
+                    }}
+                    className={`truncate px-1.5 py-0.5 text-[11px] ${e.plan ? "rounded-[4px]" : ""} ${chipClass(e)} ${
+                      done(e) ? "line-through opacity-50" : ""
+                    }`}
                   >
-                    {e.kind === "exam" && "考 · "}
                     {e.label}
-                  </button>
+                  </div>
                 ))}
                 {events.length > 3 && <p className="px-1.5 text-[10px] text-muted">+{events.length - 3}</p>}
               </div>
@@ -198,14 +185,12 @@ export default function MonthCalendar() {
             {selectedEvents.map((e) => (
               <li key={e.key}>
                 <button
-                  disabled={e.kind === "workout"}
-                  onClick={() => e.kind !== "workout" && setDialog({ task: e.task })}
+                  disabled={!e.task}
+                  onClick={() => e.task && setDialog({ task: e.task })}
                   className="flex min-h-11 w-full items-center gap-3 text-left text-sm"
                 >
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${DOT_CLASS[e.kind]}`} />
-                  <span className="w-16 shrink-0 text-xs text-muted">
-                    {{ exam: "考試", due: "截止", plan: "預計執行", workout: "運動" }[e.kind]}
-                  </span>
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY[e.cat].dot}`} />
+                  <span className="w-16 shrink-0 text-xs text-muted">{e.plan ? "預計執行" : CATEGORY[e.cat].label}</span>
                   <span className={`truncate ${done(e) ? "text-muted line-through" : ""}`}>{e.label}</span>
                 </button>
               </li>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import WeekCalendar from "@/components/calendar/WeekCalendar";
 import MonthCalendar from "@/components/calendar/MonthCalendar";
+import { CATEGORY, CATEGORY_ORDER } from "@/lib/categories";
 
 type View = "week" | "month";
 
@@ -29,6 +30,18 @@ export default function CalendarPage() {
           ))}
         </div>
       </PageHeader>
+
+      {/* 顏色圖例 */}
+      <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted">
+        {CATEGORY_ORDER.filter((c) => view === "week" || c !== "class").map((c) => (
+          <span key={c} className="flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${CATEGORY[c].dot}`} />
+            {CATEGORY[c].label}
+          </span>
+        ))}
+        {view === "month" && <span className="ml-auto hidden md:inline">點兩下新增／編輯</span>}
+      </div>
+
       {view === "week" ? <WeekCalendar /> : <MonthCalendar />}
     </main>
   );

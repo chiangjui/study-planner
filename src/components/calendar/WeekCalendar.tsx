@@ -6,7 +6,8 @@ import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
 import { useStore } from "@/lib/store";
 import { addDays, shortDate, shortTime, startOfWeek, today, WEEKDAY_EN } from "@/lib/date";
-import { isPlannedOn, type CourseSchedule, type Task, type Workout } from "@/lib/types";
+import type { CourseSchedule, Task, Workout } from "@/lib/types";
+import { CATEGORY, taskOnDay } from "@/lib/categories";
 
 const HOUR_PX = 48; // 時間軸每小時的高度
 
@@ -42,9 +43,10 @@ export default function WeekCalendar() {
   const endHour = Math.max(18, ...timeBlocks.map((s) => Math.ceil(toHours(s.end_time))));
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
 
-  // 上方欄位：沒有時間的截止項目（實心），以及預計執行的日子（虛線框）
-  const dueChips = (day: string) => data?.tasks.filter((t) => t.due_date === day && !t.start_time) ?? [];
-  const planChips = (day: string) => data?.tasks.filter((t) => isPlannedOn(t, day) && t.due_date !== day) ?? [];
+  // 上方欄位：當天沒有時間的事件（有時間的排在時間軸上），以及預計執行的日子（虛線框）
+  const dueChips = (day: string) =>
+    data?.tasks.filter((t) => taskOnDay(t, day) === "event" && !(t.start_time && t.due_date === day)) ?? [];
+  const planChips = (day: string) => data?.tasks.filter((t) => taskOnDay(t, day) === "plan") ?? [];
 
   return (
     <section className="rounded-card bg-card p-5">
@@ -130,11 +132,10 @@ export default function WeekCalendar() {
                       key={t.id}
                       title={t.title}
                       onClick={() => setDialog({ task: t })}
-                      className={`truncate rounded-[4px] px-2 py-1 text-left text-[11px] hover:opacity-80 ${
-                        t.type === "exam" ? "bg-primary text-fg" : "bg-line"
-                      } ${t.done ? "text-muted line-through opacity-60" : ""}`}
+                      className={`truncate px-2 py-1 text-left text-[11px] text-fg hover:opacity-80 ${CATEGORY[t.type].chip} ${
+                        t.done ? "line-through opacity-50" : ""
+                      }`}
                     >
-                      {t.type === "exam" && "考 · "}
                       {t.title}
                     </button>
                   ))}
@@ -143,15 +144,15 @@ export default function WeekCalendar() {
                       key={`plan-${t.id}`}
                       title={`預計執行：${t.title}`}
                       onClick={() => setDialog({ task: t })}
-                      className={`truncate rounded-[4px] border border-dashed border-muted/50 px-2 py-1 text-left text-[11px] text-muted hover:text-fg ${
-                        t.done ? "line-through opacity-60" : ""
+                      className={`truncate rounded-[4px] px-2 py-1 text-left text-[11px] hover:text-fg ${CATEGORY[t.type].plan} ${
+                        t.done ? "line-through opacity-50" : ""
                       }`}
                     >
                       {t.title}
                     </button>
                   ))}
                   {dayWorkouts.map((w) => (
-                    <p key={w.id} className="truncate rounded-[4px] bg-secondary px-2 py-1 text-[11px] text-bg">
+                    <p key={w.id} className={`truncate px-2 py-1 text-[11px] text-fg ${CATEGORY.workout.chip}`}>
                       {w.kind} {w.duration_minutes}m
                     </p>
                   ))}
@@ -196,7 +197,7 @@ export default function WeekCalendar() {
                         <Link
                           key={s.id}
                           href={`/course?id=${s.course_id}`}
-                          className="absolute inset-x-0.5 overflow-hidden rounded-[4px] border-l-2 border-primary bg-line px-2 py-1 transition-colors hover:bg-[#38383d]"
+                          className={`absolute inset-x-0.5 overflow-hidden px-2 py-1 transition-opacity hover:opacity-80 ${CATEGORY.class.chip}`}
                           style={{ top, height }}
                         >
                           <p className="truncate text-[11px] leading-tight">{course?.name}</p>
@@ -218,20 +219,21 @@ export default function WeekCalendar() {
                         (s) => s.weekday === weekday && toHours(s.start_time) < end && toHours(s.end_time) > start,
                       );
                       return (
+                        // 外層用卡片底色（不透明），和課程重疊時才看得清楚
                         <button
                           key={t.id}
                           onClick={() => setDialog({ task: t })}
-                          className={`absolute right-0.5 z-10 overflow-hidden rounded-[4px] px-2 py-1 text-left hover:opacity-90 ${
+                          className={`absolute right-0.5 z-10 overflow-hidden bg-card text-left hover:opacity-90 ${
                             overlapsClass ? "left-[45%]" : "left-0.5"
-                          } ${t.type === "exam" ? "bg-primary text-fg" : "bg-secondary text-bg"} ${
-                            t.done ? "opacity-50 line-through" : ""
-                          }`}
+                          } ${t.done ? "opacity-50 line-through" : ""}`}
                           style={{ top: (start - startHour) * HOUR_PX, height: (end - start) * HOUR_PX }}
                         >
-                          <p className="truncate text-[11px] leading-tight">{t.title}</p>
-                          <p className="truncate text-[10px] leading-tight opacity-70">
-                            {shortTime(t.start_time!)}–{shortTime(t.end_time!)}
-                          </p>
+                          <div className={`h-full px-2 py-1 text-fg ${CATEGORY[t.type].chip}`}>
+                            <p className="truncate text-[11px] leading-tight">{t.title}</p>
+                            <p className="truncate text-[10px] leading-tight opacity-70">
+                              {shortTime(t.start_time!)}–{shortTime(t.end_time!)}
+                            </p>
+                          </div>
                         </button>
                       );
                     })}
@@ -294,21 +296,21 @@ function AgendaDay({
       <ul className="mt-1 flex flex-col">
         {/* 全天：截止項目、預計執行、運動 */}
         {allDay.map((t) => {
-          const isPlan = t.due_date !== day;
+          const isPlan = taskOnDay(t, day) === "plan";
           return (
             <li key={`${isPlan ? "plan" : "due"}-${t.id}`}>
               <button onClick={() => onEdit(t)} className="flex min-h-11 w-full items-center gap-3 text-left text-sm">
-                <span className="w-24 shrink-0 text-xs text-muted">{isPlan ? "預計執行" : t.type === "exam" ? "考試" : "截止"}</span>
-                <span className={`truncate ${t.done ? "text-muted line-through" : ""} ${t.type === "exam" && !isPlan ? "text-fg" : ""}`}>
-                  {t.title}
-                </span>
+                <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY[t.type].dot} ${isPlan ? "opacity-50" : ""}`} />
+                <span className="w-20 shrink-0 text-xs text-muted">{isPlan ? "預計執行" : CATEGORY[t.type].label}</span>
+                <span className={`truncate ${t.done ? "text-muted line-through" : ""}`}>{t.title}</span>
               </button>
             </li>
           );
         })}
         {workouts.map((w) => (
           <li key={w.id} className="flex min-h-11 items-center gap-3 text-sm">
-            <span className="w-24 shrink-0 text-xs text-muted">運動</span>
+            <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY.workout.dot}`} />
+            <span className="w-20 shrink-0 text-xs text-muted">運動</span>
             <span className="truncate">
               {w.kind} {w.duration_minutes}m
             </span>
@@ -319,7 +321,8 @@ function AgendaDay({
         {rows.map((r) =>
           r.kind === "class" ? (
             <li key={r.s.id}>
-              <Link href={`/course?id=${r.s.course_id}`} className="flex min-h-11 items-center gap-3 border-l-2 border-primary pl-2 text-sm">
+              <Link href={`/course?id=${r.s.course_id}`} className="flex min-h-11 items-center gap-3 text-sm">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY.class.dot}`} />
                 <span className="w-[86px] shrink-0 text-xs tabular-nums text-muted">
                   {shortTime(r.start)}–{shortTime(r.end)}
                 </span>
@@ -331,17 +334,13 @@ function AgendaDay({
             <li key={r.t.id}>
               <button
                 onClick={() => onEdit(r.t)}
-                className={`flex min-h-11 w-full items-center gap-3 border-l-2 pl-2 text-left text-sm ${
-                  r.t.type === "exam" ? "border-primary" : "border-secondary"
-                } ${r.t.done ? "text-muted line-through" : ""}`}
+                className={`flex min-h-11 w-full items-center gap-3 text-left text-sm ${r.t.done ? "text-muted line-through" : ""}`}
               >
+                <span className={`h-2 w-2 shrink-0 rounded-full ${CATEGORY[r.t.type].dot}`} />
                 <span className="w-[86px] shrink-0 text-xs tabular-nums text-muted">
                   {shortTime(r.start)}–{shortTime(r.end)}
                 </span>
-                <span className="truncate">
-                  {r.t.type === "exam" && "考 · "}
-                  {r.t.title}
-                </span>
+                <span className="truncate">{r.t.title}</span>
               </button>
             </li>
           ),
