@@ -50,7 +50,7 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
         {sorted.map((task) => {
           const course = courses.find((c) => c.id === task.course_id);
           return (
-            <li key={task.id} className="flex items-center rounded-[4px] hover:bg-bg/40">
+            <li key={task.id} className="group flex items-center rounded-[4px] hover:bg-bg/40">
               <Checkbox checked={task.done} onChange={() => onToggle(task)} label={task.title} />
               {/* 點標題開啟編輯視窗 */}
               <button
@@ -76,12 +76,16 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
                   <span className="rounded-[4px] bg-primary px-1.5 py-0.5 text-fg">今天截止</span>
                 )}
               </span>
-              {/* 刪除：按兩次才會刪（整筆待辦都會刪掉，行事曆上的也會消失） */}
+              {/*
+                刪除：按兩次才會刪（整筆待辦都會刪掉，行事曆上的也會消失）
+                有滑鼠的裝置：滑到這一筆才顯示；手機等觸控裝置沒有「滑過」，所以一直顯示
+              */}
               <ConfirmButton
                 onConfirm={() => onDelete(task)}
                 confirmLabel="刪除？"
                 ariaLabel={`刪除 ${task.title}`}
-                className="flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm text-muted hover:text-fg"
+                armedClassName="text-secondary !opacity-100"
+                className="flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm text-muted transition-opacity hover:text-fg focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:hover)]:opacity-0"
               >
                 ×
               </ConfirmButton>
