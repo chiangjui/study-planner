@@ -69,6 +69,7 @@ export default function TodayPage() {
           onToggle={toggleTask}
           onAdd={addTask}
           onEdit={(task) => setDialog({ task })}
+          onDelete={(task) => deleteRow("tasks", task.id)}
         />
         <PomodoroCard
           className="xl:row-span-2"

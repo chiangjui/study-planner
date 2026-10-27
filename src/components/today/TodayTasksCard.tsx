@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Card, { Empty } from "@/components/Card";
 import Checkbox from "@/components/Checkbox";
+import ConfirmButton from "@/components/ConfirmButton";
 import PlusIcon from "@/components/PlusIcon";
 import { daysBetween, shortTime } from "@/lib/date";
 import type { Task } from "@/lib/types";
@@ -15,10 +16,11 @@ type Props = {
   onToggle: (task: Task) => void;
   onAdd: (title: string) => Promise<void>;
   onEdit: (task: Task) => void;
+  onDelete: (task: Task) => void;
   className?: string;
 };
 
-export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, onEdit, className }: Props) {
+export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, onEdit, onDelete, className }: Props) {
   const [title, setTitle] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -48,7 +50,7 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
         {sorted.map((task) => {
           const course = courses.find((c) => c.id === task.course_id);
           return (
-            <li key={task.id} className="flex items-center rounded-[4px] pr-2 hover:bg-bg/40">
+            <li key={task.id} className="flex items-center rounded-[4px] hover:bg-bg/40">
               <Checkbox checked={task.done} onChange={() => onToggle(task)} label={task.title} />
               {/* 點標題開啟編輯視窗 */}
               <button
@@ -74,6 +76,15 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
                   <span className="rounded-[4px] bg-primary px-1.5 py-0.5 text-fg">今天截止</span>
                 )}
               </span>
+              {/* 刪除：按兩次才會刪（整筆待辦都會刪掉，行事曆上的也會消失） */}
+              <ConfirmButton
+                onConfirm={() => onDelete(task)}
+                confirmLabel="刪除？"
+                ariaLabel={`刪除 ${task.title}`}
+                className="flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm text-muted hover:text-fg"
+              >
+                ×
+              </ConfirmButton>
             </li>
           );
         })}
