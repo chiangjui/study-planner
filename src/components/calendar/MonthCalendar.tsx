@@ -2,35 +2,17 @@
 
 // 月行事曆：只顯示課表以外的事件（待辦、考試、行程、預計執行、運動）
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
-import { supabase } from "@/lib/supabase";
+import { useStore } from "@/lib/store";
 import { addDays, addMonths, shortDate, shortTime, startOfMonth, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
-import { isPlannedOn, type Task, type Workout } from "@/lib/types";
-import type { CourseLite } from "@/lib/useTodayData";
-
-type MonthData = { courses: CourseLite[]; tasks: Task[]; workouts: Workout[] };
+import { isPlannedOn, type Task } from "@/lib/types";
 
 // 一天裡的一個事件
 type DayEvent =
   | { kind: "due" | "exam" | "plan"; key: string; label: string; task: Task }
   | { kind: "workout"; key: string; label: string };
-
-async function fetchRange(from: string, to: string): Promise<MonthData> {
-  const [courses, tasks, workouts] = await Promise.all([
-    supabase.from("courses").select("id, name"),
-    // 截止日在範圍內、或預計執行和範圍有重疊
-    supabase
-      .from("tasks")
-      .select("*")
-      .or(
-        `and(due_date.gte.${from},due_date.lte.${to}),and(planned_date.lte.${to},planned_end_date.gte.${from}),and(planned_date.gte.${from},planned_date.lte.${to})`,
-      ),
-    supabase.from("workouts").select("*").gte("workout_date", from).lte("workout_date", to),
-  ]);
-  return { courses: courses.data ?? [], tasks: tasks.data ?? [], workouts: workouts.data ?? [] };
-}
 
 // 每種事件的顏色：考試主色、截止灰底、預計執行虛線、運動灰米色
 const CHIP_CLASS: Record<DayEvent["kind"], string> = {
@@ -49,10 +31,8 @@ const DOT_CLASS: Record<DayEvent["kind"], string> = {
 export default function MonthCalendar() {
   const todayStr = today();
   const [month, setMonth] = useState(() => startOfMonth(todayStr)); // 這個月的第一天
-  const [data, setData] = useState<MonthData | null>(null);
   const [selected, setSelected] = useState(todayStr); // 手機版：點選的那一天
   const [dialog, setDialog] = useState<TaskDialogState>(null);
-  const [version, setVersion] = useState(0); // 新增／編輯後 +1，重新讀取
 
   // 月曆格子：從這個月第一天所在那週的週一，到最後一天所在那週的週日
   const monthEnd = addDays(addMonths(month, 1), -1);
@@ -61,13 +41,8 @@ export default function MonthCalendar() {
   const days: string[] = [];
   for (let d = gridStart; d <= gridEnd; d = addDays(d, 1)) days.push(d);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchRange(gridStart, gridEnd).then((d) => !cancelled && setData(d));
-    return () => {
-      cancelled = true;
-    };
-  }, [gridStart, gridEnd, version]);
+  // 資料來自本機資料庫（離線也能看）
+  const { data } = useStore();
 
   function eventsOn(day: string): DayEvent[] {
     if (!data) return [];
@@ -241,9 +216,8 @@ export default function MonthCalendar() {
 
       <TaskDialog
         state={dialog}
-        courses={data?.courses ?? []}
+        courses={data?.courses.map((c) => ({ id: c.id, name: c.name })) ?? []}
         onClose={() => setDialog(null)}
-        onChange={() => setVersion((v) => v + 1)}
       />
     </section>
   );

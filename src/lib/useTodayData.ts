@@ -1,17 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { addDays, startOfWeek, taipeiDayStart, today } from "@/lib/date";
-import {
-  DEFAULT_SETTINGS,
-  type CourseSchedule,
-  type Habit,
-  type HabitLog,
-  type StudySession,
-  type Task,
-  type Workout,
-} from "@/lib/types";
+import { useStore } from "@/lib/store";
+import { addDays, startOfWeek, taipeiDate, today } from "@/lib/date";
+import { DEFAULT_SETTINGS, isPlannedOn, type CourseSchedule, type Habit, type HabitLog, type StudySession, type Task, type Workout } from "@/lib/types";
 
 export type CourseLite = { id: string; name: string };
 
@@ -28,91 +19,39 @@ export type TodayData = {
   workouts: Workout[]; // 本週運動紀錄
 };
 
-// 今日頁需要的所有資料，一次平行讀取
-async function fetchTodayData(): Promise<TodayData> {
+const byCreated = (a: { created_at: string }, b: { created_at: string }) => a.created_at.localeCompare(b.created_at);
+
+// 今日頁需要的資料：從本機資料庫篩選出來（離線也能用）
+export function useTodayData(): TodayData | null {
+  const { data: db } = useStore();
+  if (!db) return null;
+
+  // 每次畫面更新都重新算「今天」，跨過午夜後切回來就會是新的一天
   const date = today();
   const weekStart = startOfWeek(date);
   const weekEnd = addDays(weekStart, 7);
-
-  const [courses, schedules, tasks, sessions, settings, habits, habitLogs, workouts] =
-    await Promise.all([
-      supabase.from("courses").select("id, name").order("created_at"),
-      supabase.from("course_schedules").select("*"),
-      supabase
-        .from("tasks")
-        .select("*")
-        .or(`planned_date.eq.${date},and(planned_date.lte.${date},planned_end_date.gte.${date}),due_date.gte.${date}`)
-        .order("created_at"),
-      supabase
-        .from("study_sessions")
-        .select("*")
-        .gte("started_at", taipeiDayStart(weekStart))
-        .lt("started_at", taipeiDayStart(weekEnd)),
-      supabase.from("user_settings").select("*").maybeSingle(),
-      supabase.from("habits").select("*").order("created_at"),
-      supabase.from("habit_logs").select("*").gte("log_date", weekStart).lt("log_date", weekEnd),
-      supabase.from("workouts").select("*").gte("workout_date", weekStart).lt("workout_date", weekEnd),
-    ]);
-
-  // 任何一個查詢失敗就整體顯示錯誤
-  const failed = [courses, schedules, tasks, sessions, settings, habits, habitLogs, workouts].find(
-    (r) => r.error,
-  );
-  if (failed?.error) throw new Error(failed.error.message);
+  const settings = db.user_settings[0];
 
   return {
     date,
     weekStart,
-    courses: courses.data ?? [],
-    schedules: schedules.data ?? [],
-    tasks: tasks.data ?? [],
-    sessions: sessions.data ?? [],
+    courses: [...db.courses].sort(byCreated).map((c) => ({ id: c.id, name: c.name })),
+    schedules: db.course_schedules,
+    tasks: db.tasks.filter((t) => isPlannedOn(t, date) || (t.due_date && t.due_date >= date)).sort(byCreated),
+    sessions: db.study_sessions.filter((s) => {
+      const day = taipeiDate(new Date(s.started_at));
+      return day >= weekStart && day < weekEnd;
+    }),
     // 還沒存過設定就用預設值
-    settings: settings.data
+    settings: settings
       ? {
-          daily_goal_hours: Number(settings.data.daily_goal_hours),
-          focus_minutes: settings.data.focus_minutes,
-          break_minutes: settings.data.break_minutes,
+          daily_goal_hours: Number(settings.daily_goal_hours),
+          focus_minutes: settings.focus_minutes,
+          break_minutes: settings.break_minutes,
         }
       : DEFAULT_SETTINGS,
-    habits: habits.data ?? [],
-    habitLogs: habitLogs.data ?? [],
-    workouts: workouts.data ?? [],
+    habits: [...db.habits].sort(byCreated),
+    habitLogs: db.habit_logs.filter((l) => l.log_date >= weekStart && l.log_date < weekEnd),
+    workouts: db.workouts.filter((w) => w.workout_date >= weekStart && w.workout_date < weekEnd),
   };
-}
-
-export function useTodayData() {
-  const [data, setData] = useState<TodayData | null>(null);
-  const [error, setError] = useState("");
-
-  const reload = useCallback(async () => {
-    try {
-      setData(await fetchTodayData());
-      setError("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    }
-  }, []);
-
-  // 第一次進入頁面時讀取（離開頁面後才回來的結果就丟掉）
-  useEffect(() => {
-    let cancelled = false;
-    fetchTodayData()
-      .then((d) => !cancelled && setData(d))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // app 開著跨過午夜後，切回這個分頁時自動換成新的一天
-  useEffect(() => {
-    function onVisible() {
-      if (document.visibilityState === "visible" && data && data.date !== today()) reload();
-    }
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [data, reload]);
-
-  return { data, setData, error, reload };
 }

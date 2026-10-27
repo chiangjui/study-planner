@@ -1,67 +1,41 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Card, { Empty } from "@/components/Card";
 import Checkbox from "@/components/Checkbox";
 import ConfirmButton from "@/components/ConfirmButton";
 import PlusIcon from "@/components/PlusIcon";
-import { supabase } from "@/lib/supabase";
-import { addDays, today } from "@/lib/date";
+import { deleteRow, insertRow, useStore } from "@/lib/store";
+import { today } from "@/lib/date";
 import { streakOf } from "@/lib/habits";
-import type { Habit, HabitLog } from "@/lib/types";
+import type { Habit } from "@/lib/types";
 
-type LogLite = Pick<HabitLog, "id" | "habit_id" | "log_date">;
-
-// 習慣管理：新增、刪除、今日打卡、連續天數
+// 習慣管理：新增、刪除、今日打卡、連續天數（資料來自本機資料庫，離線也能用）
 export default function HabitsManager() {
-  const [habits, setHabits] = useState<Habit[] | null>(null);
-  const [logs, setLogs] = useState<LogLite[]>([]);
+  const { data: db } = useStore();
   const [name, setName] = useState("");
-  const [date] = useState(today);
+  const date = today();
+  const habits = db ? [...db.habits].sort((a, b) => a.created_at.localeCompare(b.created_at)) : null;
+  const logs = db?.habit_logs ?? [];
 
-  useEffect(() => {
-    // 連續天數只需要往回看，讀最近 400 天就足夠
-    Promise.all([
-      supabase.from("habits").select("*").order("created_at"),
-      supabase.from("habit_logs").select("id, habit_id, log_date").gte("log_date", addDays(date, -400)),
-    ]).then(([h, l]) => {
-      setHabits(h.data ?? []);
-      setLogs(l.data ?? []);
-    });
-  }, [date]);
-
-  async function addHabit(e: React.FormEvent) {
+  function addHabit(e: React.FormEvent) {
     e.preventDefault();
     const text = name.trim();
     if (!text) return;
-    const { data, error } = await supabase.from("habits").insert({ name: text }).select().single();
-    if (error) return alert(`新增失敗：${error.message}`);
-    setHabits((hs) => [...(hs ?? []), data]);
+    insertRow("habits", { name: text });
     setName("");
   }
 
-  async function deleteHabit(habit: Habit) {
-    const { error } = await supabase.from("habits").delete().eq("id", habit.id);
-    if (error) return alert(`刪除失敗：${error.message}`);
-    setHabits((hs) => hs?.filter((h) => h.id !== habit.id) ?? null);
-    setLogs((ls) => ls.filter((l) => l.habit_id !== habit.id));
+  // 打卡紀錄會一起刪除
+  function deleteHabit(habit: Habit) {
+    deleteRow("habits", habit.id);
   }
 
   // 今天打卡／取消打卡
-  async function toggle(habit: Habit) {
+  function toggle(habit: Habit) {
     const existing = logs.find((l) => l.habit_id === habit.id && l.log_date === date);
-    if (existing) {
-      setLogs((ls) => ls.filter((l) => l.id !== existing.id));
-      await supabase.from("habit_logs").delete().eq("id", existing.id);
-    } else {
-      const { data, error } = await supabase
-        .from("habit_logs")
-        .insert({ habit_id: habit.id, log_date: date })
-        .select("id, habit_id, log_date")
-        .single();
-      if (error) return alert(`打卡失敗：${error.message}`);
-      setLogs((ls) => [...ls, data]);
-    }
+    if (existing) deleteRow("habit_logs", existing.id);
+    else insertRow("habit_logs", { habit_id: habit.id, log_date: date });
   }
 
   return (

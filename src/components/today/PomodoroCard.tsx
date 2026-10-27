@@ -1,12 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Card from "@/components/Card";
 import ConfirmButton from "@/components/ConfirmButton";
 import PlusIcon, { MinusIcon } from "@/components/PlusIcon";
-import { useUser } from "@/components/AuthGuard";
 import { usePomodoro } from "@/lib/pomodoro";
-import { supabase } from "@/lib/supabase";
 import type { CourseLite } from "@/lib/useTodayData";
 
 // 毫秒 → "MM:SS"
@@ -34,27 +32,15 @@ export default function PomodoroCard({
   courses: CourseLite[];
   focusMinutes: number;
   breakMinutes: number;
-  onTimesChange: (focus: number, brk: number) => void; // 卡片上改了時間 → 更新今日頁的設定
+  onTimesChange: (focus: number, brk: number) => void; // 卡片上改了時間 → 存到設定（本機先存，自動同步）
   className?: string;
 }) {
-  const user = useUser();
   const { state, remainingMs, start, stop, finishEarly } = usePomodoro();
   const [courseId, setCourseId] = useState("");
   const [editing, setEditing] = useState(false); // 是否正在卡片上調整時間
-  const [saveStatus, setSaveStatus] = useState("");
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // 調整時間：畫面立即更新，停手 0.5 秒後自動存到資料庫（不用按 Save）
+  // 調整時間：直接存（不用按 Save），連續按的話同步時只會送出最後的值
   function changeTimes(focus: number, brk: number) {
     onTimesChange(focus, brk);
-    setSaveStatus("Saving…");
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const { error } = await supabase
-        .from("user_settings")
-        .upsert({ user_id: user.id, focus_minutes: focus, break_minutes: brk, updated_at: new Date().toISOString() });
-      setSaveStatus(error ? `儲存失敗：${error.message}` : "Saved");
-    }, 500);
   }
 
   const running = state.phase !== "idle";
@@ -136,7 +122,6 @@ export default function PomodoroCard({
             step={1}
             max={60}
           />
-          <p className="h-4 text-right text-[10px] uppercase tracking-[0.1em] opacity-70">{saveStatus}</p>
         </div>
       ) : (
       <div className="my-auto py-8">

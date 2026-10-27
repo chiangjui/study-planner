@@ -10,8 +10,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import type { StudySession } from "@/lib/types";
+import { insertRow } from "@/lib/store";
 
 type Running = {
   phase: "focus" | "break";
@@ -66,18 +65,13 @@ function notify(ctx: AudioContext | null, title: string, body: string) {
   }
 }
 
-// 寫入一筆讀書紀錄
-async function recordSession(courseId: string, startedAt: number, minutes: number) {
-  const { data, error } = await supabase
-    .from("study_sessions")
-    .insert({ course_id: courseId, started_at: new Date(startedAt).toISOString(), duration_minutes: minutes })
-    .select()
-    .single();
-  if (error) {
-    alert(`讀書紀錄儲存失敗：${error.message}`);
-    return null;
-  }
-  return data as StudySession;
+// 寫入一筆讀書紀錄（先存本機，有網路時自動同步，所以離線也能記錄）
+function recordSession(courseId: string, startedAt: number, minutes: number) {
+  insertRow("study_sessions", {
+    course_id: courseId,
+    started_at: new Date(startedAt).toISOString(),
+    duration_minutes: minutes,
+  });
 }
 
 type PomodoroContextValue = {
@@ -86,8 +80,6 @@ type PomodoroContextValue = {
   start: (courseId: string, focusMinutes: number, breakMinutes: number) => void;
   stop: () => void; // 休息中：略過休息
   finishEarly: () => void; // 專注中提早結束：已專注的分鐘數照樣記錄
-  // 訂閱「新增了一筆讀書紀錄」，回傳取消訂閱的函式
-  onRecorded: (fn: (session: StudySession) => void) => () => void;
 };
 
 const PomodoroContext = createContext<PomodoroContextValue | null>(null);
@@ -103,7 +95,6 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<TimerState>(load);
   const [now, setNow] = useState(() => Date.now());
   const audioRef = useRef<AudioContext | null>(null);
-  const listeners = useRef(new Set<(s: StudySession) => void>());
 
   const persist = useCallback((next: TimerState) => {
     save(next);
@@ -122,7 +113,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (state.phase === "idle") return;
 
-    async function complete() {
+    function complete() {
       // 以 localStorage 為準：如果另一個分頁已經處理過，就直接同步
       const current = load();
       if (current.phase === "idle" || state.phase === "idle" || current.startedAt !== state.startedAt) {
@@ -140,12 +131,7 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
         );
         notify(audioRef.current, "專注結束！", `已記錄 ${current.focusMinutes} 分鐘，休息一下吧`);
 
-        const session = await recordSession(
-          current.courseId,
-          current.endsAt - current.focusMinutes * 60_000,
-          current.focusMinutes,
-        );
-        if (session) listeners.current.forEach((fn) => fn(session));
+        recordSession(current.courseId, current.endsAt - current.focusMinutes * 60_000, current.focusMinutes);
       } else {
         persist(IDLE);
         notify(audioRef.current, "休息結束", "準備開始下一輪專注");
@@ -182,27 +168,18 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
   const stop = useCallback(() => persist(IDLE), [persist]);
 
   // 提早結束專注：例如 50 分鐘的專注在第 42 分鐘結束，就記錄 42 分鐘（不到 1 分鐘不記錄）
-  const finishEarly = useCallback(async () => {
+  const finishEarly = useCallback(() => {
     const current = load();
-    if (current.phase !== "focus") return persist(IDLE);
     persist(IDLE);
+    if (current.phase !== "focus") return;
     const minutes = Math.floor((Date.now() - current.startedAt) / 60_000);
-    if (minutes < 1) return;
-    const session = await recordSession(current.courseId, current.startedAt, minutes);
-    if (session) listeners.current.forEach((fn) => fn(session));
+    if (minutes >= 1) recordSession(current.courseId, current.startedAt, minutes);
   }, [persist]);
-
-  const onRecorded = useCallback((fn: (s: StudySession) => void) => {
-    listeners.current.add(fn);
-    return () => {
-      listeners.current.delete(fn);
-    };
-  }, []);
 
   const remainingMs = state.phase === "idle" ? 0 : Math.max(0, state.endsAt - now);
 
   return (
-    <PomodoroContext.Provider value={{ state, remainingMs, start, stop, finishEarly, onRecorded }}>
+    <PomodoroContext.Provider value={{ state, remainingMs, start, stop, finishEarly }}>
       {children}
     </PomodoroContext.Provider>
   );

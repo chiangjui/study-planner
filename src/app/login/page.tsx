@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { useOnline } from "@/lib/useOnline";
 
 type Mode = "login" | "signup";
 
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const online = useOnline();
 
   // 已經登入的話，直接進首頁
   useEffect(() => {
@@ -85,6 +87,12 @@ export default function LoginPage() {
               </button>
             ))}
           </div>
+
+          {!online && (
+            <p className="mb-4 rounded-[4px] border border-line p-3 text-sm text-secondary">
+              目前離線：登入需要網路。登入過的裝置離線時可以直接使用。
+            </p>
+          )}
 
           {!isSupabaseConfigured && (
             <p className="mb-4 rounded-[4px] border border-line p-3 text-sm text-secondary">

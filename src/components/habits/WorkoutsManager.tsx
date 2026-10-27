@@ -1,57 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Card, { Empty } from "@/components/Card";
 import ConfirmButton from "@/components/ConfirmButton";
 import PlusIcon from "@/components/PlusIcon";
-import { supabase } from "@/lib/supabase";
+import { deleteRow, insertRow, useStore } from "@/lib/store";
 import { shortDate, startOfWeek, today, weekdayOf, WEEKDAY_EN } from "@/lib/date";
 import type { Workout } from "@/lib/types";
 
-// 運動紀錄：新增（日期、項目、時長）、最近紀錄、刪除
+// 運動紀錄：新增（日期、項目、時長）、最近紀錄、刪除（資料來自本機資料庫，離線也能用）
 export default function WorkoutsManager() {
-  const [workouts, setWorkouts] = useState<Workout[] | null>(null);
+  const { data: db } = useStore();
   const [date, setDate] = useState(today);
   const [kind, setKind] = useState("");
   const [minutes, setMinutes] = useState(30);
 
-  useEffect(() => {
-    supabase
-      .from("workouts")
-      .select("*")
-      .order("workout_date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(30)
-      .then(({ data }) => setWorkouts(data ?? []));
-  }, []);
+  // 最近 30 筆，新的在前
+  const workouts = db
+    ? [...db.workouts]
+        .sort((a, b) => b.workout_date.localeCompare(a.workout_date) || b.created_at.localeCompare(a.created_at))
+        .slice(0, 30)
+    : null;
 
-  async function addWorkout(e: React.FormEvent) {
+  function addWorkout(e: React.FormEvent) {
     e.preventDefault();
     const text = kind.trim();
     if (!text) return;
-    const { data, error } = await supabase
-      .from("workouts")
-      .insert({ workout_date: date, kind: text, duration_minutes: minutes })
-      .select()
-      .single();
-    if (error) return alert(`新增失敗：${error.message}`);
-    // 依日期排序放進列表
-    setWorkouts((ws) =>
-      [data, ...(ws ?? [])].sort((a, b) => b.workout_date.localeCompare(a.workout_date)),
-    );
+    insertRow("workouts", { workout_date: date, kind: text, duration_minutes: minutes });
     setKind("");
   }
 
-  async function deleteWorkout(w: Workout) {
-    const { error } = await supabase.from("workouts").delete().eq("id", w.id);
-    if (error) return alert(`刪除失敗：${error.message}`);
-    setWorkouts((ws) => ws?.filter((x) => x.id !== w.id) ?? null);
+  function deleteWorkout(w: Workout) {
+    deleteRow("workouts", w.id);
   }
 
   const weekStart = startOfWeek(today());
-  const thisWeek = workouts?.filter((w) => w.workout_date >= weekStart).length ?? 0;
+  const thisWeek = db?.workouts.filter((w) => w.workout_date >= weekStart).length ?? 0;
   // 以前填過的項目，輸入時當作建議
-  const kinds = [...new Set(workouts?.map((w) => w.kind))];
+  const kinds = [...new Set(db?.workouts.map((w) => w.kind))];
 
   return (
     <Card

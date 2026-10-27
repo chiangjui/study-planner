@@ -1,22 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import PlusIcon from "@/components/PlusIcon";
-import { supabase } from "@/lib/supabase";
+import { useStore } from "@/lib/store";
 import { addDays, shortDate, shortTime, startOfWeek, today, WEEKDAY_EN } from "@/lib/date";
 import { isPlannedOn, type CourseSchedule, type Task, type Workout } from "@/lib/types";
-import type { CourseLite } from "@/lib/useTodayData";
 
 const HOUR_PX = 48; // 時間軸每小時的高度
-
-type WeekData = {
-  courses: CourseLite[];
-  schedules: CourseSchedule[];
-  tasks: Task[];
-  workouts: Workout[];
-};
 
 // "13:10:00" → 13.1667（小時）
 function toHours(time: string) {
@@ -24,42 +16,19 @@ function toHours(time: string) {
   return h + m / 60;
 }
 
-async function fetchWeek(weekStart: string): Promise<WeekData> {
-  const weekEnd = addDays(weekStart, 6);
-  const [courses, schedules, tasks, workouts] = await Promise.all([
-    supabase.from("courses").select("id, name"),
-    supabase.from("course_schedules").select("*"),
-    // 截止日在這一週、或預計執行範圍和這一週有重疊的待辦
-    supabase
-      .from("tasks")
-      .select("*")
-      .or(
-        `and(due_date.gte.${weekStart},due_date.lte.${weekEnd}),and(planned_date.lte.${weekEnd},planned_end_date.gte.${weekStart}),and(planned_date.gte.${weekStart},planned_date.lte.${weekEnd})`,
-      ),
-    supabase.from("workouts").select("*").gte("workout_date", weekStart).lte("workout_date", weekEnd),
-  ]);
-  return {
-    courses: courses.data ?? [],
-    schedules: schedules.data ?? [],
-    tasks: tasks.data ?? [],
-    workouts: workouts.data ?? [],
-  };
-}
-
 export default function WeekCalendar() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(today()));
-  const [data, setData] = useState<WeekData | null>(null);
   const [dialog, setDialog] = useState<TaskDialogState>(null);
-  const [version, setVersion] = useState(0); // 新增／編輯待辦後 +1，重新讀取這一週
   const todayStr = today();
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchWeek(weekStart).then((d) => !cancelled && setData(d));
-    return () => {
-      cancelled = true;
-    };
-  }, [weekStart, version]);
+  // 資料來自本機資料庫（離線也能看）；下面依日期篩選
+  const { data: db } = useStore();
+  const data = db && {
+    courses: db.courses.map((c) => ({ id: c.id, name: c.name })),
+    schedules: db.course_schedules,
+    tasks: db.tasks,
+    workouts: db.workouts,
+  };
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -273,12 +242,7 @@ export default function WeekCalendar() {
         </div>
       </div>
 
-      <TaskDialog
-        state={dialog}
-        courses={data?.courses ?? []}
-        onClose={() => setDialog(null)}
-        onChange={() => setVersion((v) => v + 1)}
-      />
+      <TaskDialog state={dialog} courses={data?.courses ?? []} onClose={() => setDialog(null)} />
     </section>
   );
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import CourseView from "@/components/course/CourseView";
 import CourseForm, { EMPTY_DRAFT, toDraft } from "@/components/course/CourseForm";
-import { supabase } from "@/lib/supabase";
-import type { Course, CourseSchedule } from "@/lib/types";
+import StoreLoading from "@/components/StoreLoading";
+import { deleteRow, useStore } from "@/lib/store";
 
 // 課程詳細頁：/course?id=xxx（id=new 代表新增課程）
 // 靜態輸出無法產生動態路由，所以用 query string 帶 id
@@ -31,42 +31,27 @@ function CourseDetail({ id }: { id: string }) {
   const router = useRouter();
   const isNew = id === "new";
   const [editing, setEditing] = useState(isNew);
-  const [course, setCourse] = useState<Course | null>(null);
-  const [schedules, setSchedules] = useState<CourseSchedule[]>([]);
-  const [notFound, setNotFound] = useState(false);
-  const [version, setVersion] = useState(0); // 儲存後 +1，重新讀取
+  // 課程資料來自本機資料庫（離線也能看、也能改）
+  const { data: db } = useStore();
+  const course = db?.courses.find((c) => c.id === id) ?? null;
+  const schedules = db?.course_schedules.filter((s) => s.course_id === id) ?? [];
 
-  useEffect(() => {
-    if (isNew || !id) return;
-    Promise.all([
-      supabase.from("courses").select("*").eq("id", id).maybeSingle(),
-      supabase.from("course_schedules").select("*").eq("course_id", id),
-    ]).then(([c, s]) => {
-      if (!c.data) return setNotFound(true);
-      setCourse(c.data);
-      setSchedules(s.data ?? []);
-    });
-  }, [id, isNew, version]);
-
-  async function handleDelete() {
+  function handleDelete() {
     if (!course) return;
-    const { error } = await supabase.from("courses").delete().eq("id", course.id);
-    if (error) return alert(`刪除失敗：${error.message}`);
+    deleteRow("courses", course.id);
     router.push("/courses");
   }
 
   function handleSaved(savedId: string) {
-    if (isNew) {
-      router.replace(`/course?id=${savedId}`);
-    } else {
-      setEditing(false);
-      setVersion((v) => v + 1);
-    }
+    if (isNew) router.replace(`/course?id=${savedId}`);
+    else setEditing(false);
   }
 
   const header = <PageHeader title={isNew ? "New course" : "Course"} backHref="/courses" backLabel="Courses" />;
 
-  if (!id || notFound) {
+  if (!db) return <StoreLoading />;
+
+  if (!id || (!isNew && !course)) {
     return (
       <>
         {header}
@@ -84,14 +69,7 @@ function CourseDetail({ id }: { id: string }) {
     );
   }
 
-  if (!course) {
-    return (
-      <>
-        {header}
-        <p className="card-title">Loading…</p>
-      </>
-    );
-  }
+  if (!course) return null;
 
   return (
     <>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SyncStatus from "@/components/SyncStatus";
 
 // 導覽項目的小圖示（線條風格，跟著文字顏色）
 const ICONS: Record<string, React.ReactNode> = {
@@ -54,6 +55,8 @@ export default function AppNav() {
           </li>
         ))}
       </ul>
+      {/* 同步狀態（離線、待同步…），都正常時不顯示 */}
+      <SyncStatus className="ml-auto" />
     </nav>
   );
 }

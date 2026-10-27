@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import Card from "@/components/Card";
-import { supabase } from "@/lib/supabase";
+import { deleteRow, getData, insertRow, updateRow } from "@/lib/store";
 import { addDays, shortTime, WEEKDAY_ZH } from "@/lib/date";
 import { findPeriod, parsePeriodLabel, PERIODS } from "@/lib/periods";
 import type { Course, CourseSchedule, GradingItem, WeeklyTopic } from "@/lib/types";
@@ -66,7 +66,6 @@ export default function CourseForm({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   // 小工具：更新陣列裡的某一筆
@@ -93,13 +92,12 @@ export default function CourseForm({
     });
   }
 
-  async function handleSave(e: React.FormEvent) {
+  function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     const bad = draft.schedules.find((s) => !s.start_time || !s.end_time || s.end_time <= s.start_time);
     if (bad) return setError("上課時段的結束時間必須晚於開始時間");
 
-    setSaving(true);
     const courseRow = {
       name: draft.name.trim(),
       teacher: draft.teacher.trim() || null,
@@ -109,36 +107,26 @@ export default function CourseForm({
       weekly_topics: draft.weekly_topics.filter((t) => t.topic.trim()),
     };
 
-    // 1. 新增或更新課程
-    const result = courseId
-      ? await supabase.from("courses").update(courseRow).eq("id", courseId).select("id").single()
-      : await supabase.from("courses").insert(courseRow).select("id").single();
-    if (result.error) {
-      setSaving(false);
-      return setError(`儲存失敗：${result.error.message}`);
-    }
-    const id = result.data.id;
+    // 1. 新增或更新課程（先存本機，有網路時自動同步）
+    let id = courseId;
+    if (id) updateRow("courses", id, courseRow);
+    else id = insertRow("courses", courseRow).id;
 
-    // 2. 上課時段：整批刪掉再重新寫入（最簡單、不會漏改）
-    await supabase.from("course_schedules").delete().eq("course_id", id);
-    if (draft.schedules.length > 0) {
-      const { error } = await supabase.from("course_schedules").insert(
-        draft.schedules.map((s) => ({
-          course_id: id,
-          weekday: s.weekday,
-          start_time: s.start_time,
-          end_time: s.end_time,
-          period_label: s.period_label || null,
-          room: s.room.trim() || null,
-        })),
-      );
-      if (error) {
-        setSaving(false);
-        return setError(`上課時段儲存失敗：${error.message}`);
-      }
+    // 2. 上課時段：舊的全部刪掉、重新寫入（最簡單、不會漏改）
+    for (const s of getData()?.course_schedules.filter((s) => s.course_id === id) ?? []) {
+      deleteRow("course_schedules", s.id);
+    }
+    for (const s of draft.schedules) {
+      insertRow("course_schedules", {
+        course_id: id,
+        weekday: s.weekday,
+        start_time: s.start_time,
+        end_time: s.end_time,
+        period_label: s.period_label || null,
+        room: s.room.trim() || null,
+      });
     }
 
-    setSaving(false);
     onSaved(id);
   }
 
@@ -346,8 +334,8 @@ export default function CourseForm({
 
       {/* 儲存列 */}
       <div className="flex items-center gap-3 lg:col-span-2">
-        <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? "…" : "Save"}
+        <button type="submit" className="btn-primary">
+          Save
         </button>
         <button
           type="button"

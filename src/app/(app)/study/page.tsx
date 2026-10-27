@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import PageHeader from "@/components/PageHeader";
 import { Empty } from "@/components/Card";
 import ConfirmButton from "@/components/ConfirmButton";
-import { supabase } from "@/lib/supabase";
+import StoreLoading from "@/components/StoreLoading";
+import { deleteRow, useStore } from "@/lib/store";
 import {
   addDays,
   shortDate,
@@ -17,45 +17,34 @@ import {
   WEEKDAY_EN,
 } from "@/lib/date";
 import type { StudySession } from "@/lib/types";
-import type { CourseLite } from "@/lib/useTodayData";
 
 const DAYS_SHOWN = 30; // 顯示最近幾天的紀錄
 
 // 讀書紀錄：一筆一筆列出每次專注，可以刪除
 export default function StudyLogPage() {
-  const [sessions, setSessions] = useState<StudySession[] | null>(null);
-  const [courses, setCourses] = useState<CourseLite[]>([]);
+  // 資料來自本機資料庫（離線也能看、也能刪）
+  const { data: db } = useStore();
+  if (!db) return <StoreLoading />;
 
-  useEffect(() => {
-    const from = addDays(today(), -(DAYS_SHOWN - 1));
-    Promise.all([
-      supabase
-        .from("study_sessions")
-        .select("*")
-        .gte("started_at", taipeiDayStart(from))
-        .order("started_at", { ascending: false }),
-      supabase.from("courses").select("id, name"),
-    ]).then(([s, c]) => {
-      setSessions(s.data ?? []);
-      setCourses(c.data ?? []);
-    });
-  }, []);
+  const from = taipeiDayStart(addDays(today(), -(DAYS_SHOWN - 1)));
+  const sessions = db.study_sessions
+    .filter((s) => new Date(s.started_at) >= new Date(from))
+    .sort((a, b) => b.started_at.localeCompare(a.started_at));
+  const courses = db.courses;
 
-  async function handleDelete(id: string) {
-    const { error } = await supabase.from("study_sessions").delete().eq("id", id);
-    if (error) return alert(`刪除失敗：${error.message}`);
-    setSessions((ss) => ss?.filter((s) => s.id !== id) ?? null);
+  function handleDelete(id: string) {
+    deleteRow("study_sessions", id);
   }
 
   // 依日期（台北）分組，新的在前
   const groups = new Map<string, StudySession[]>();
-  for (const s of sessions ?? []) {
+  for (const s of sessions) {
     const day = taipeiDate(new Date(s.started_at));
     groups.set(day, [...(groups.get(day) ?? []), s]);
   }
 
   const weekStart = startOfWeek(today());
-  const weekMinutes = (sessions ?? [])
+  const weekMinutes = sessions
     .filter((s) => taipeiDate(new Date(s.started_at)) >= weekStart)
     .reduce((sum, s) => sum + s.duration_minutes, 0);
 
@@ -68,9 +57,7 @@ export default function StudyLogPage() {
       </PageHeader>
 
       <section className="card">
-        {!sessions ? (
-          <p className="card-title">Loading…</p>
-        ) : sessions.length === 0 ? (
+        {sessions.length === 0 ? (
           <Empty>最近 {DAYS_SHOWN} 天還沒有讀書紀錄</Empty>
         ) : (
           <div className="flex flex-col gap-6">

@@ -4,12 +4,10 @@
 
 import { useEffect, useState } from "react";
 import ConfirmButton from "@/components/ConfirmButton";
-import { supabase } from "@/lib/supabase";
+import { deleteRow, insertRow, updateRow } from "@/lib/store";
 import { addDays, daysBetween, shortDate } from "@/lib/date";
 import { TASK_TYPE_LABEL, type Task, type TaskType } from "@/lib/types";
 import type { CourseLite } from "@/lib/useTodayData";
-
-export type TaskChange = { kind: "saved"; task: Task } | { kind: "deleted"; id: string };
 
 // 視窗要開啟時傳入：task = 編輯既有的；defaults = 新增時的預設值
 export type TaskDialogState = { task?: Task; defaults?: Partial<Task> } | null;
@@ -20,12 +18,10 @@ export default function TaskDialog({
   state,
   courses,
   onClose,
-  onChange,
 }: {
   state: TaskDialogState;
   courses: CourseLite[];
   onClose: () => void;
-  onChange: (change: TaskChange) => void;
 }) {
   if (!state) return null;
   // key：每次打開都用新的表單狀態
@@ -36,7 +32,6 @@ export default function TaskDialog({
       editingId={state.task?.id ?? null}
       courses={courses}
       onClose={onClose}
-      onChange={onChange}
     />
   );
 }
@@ -46,13 +41,11 @@ function DialogForm({
   editingId,
   courses,
   onClose,
-  onChange,
 }: {
   initial: Partial<Task>;
   editingId: string | null;
   courses: CourseLite[];
   onClose: () => void;
-  onChange: (change: TaskChange) => void;
 }) {
   const [title, setTitle] = useState(initial.title ?? "");
   const [type, setType] = useState<TaskType>(initial.type ?? "general");
@@ -68,7 +61,6 @@ function DialogForm({
   const [startTime, setStartTime] = useState(initial.start_time?.slice(0, 5) ?? "09:00");
   const [endTime, setEndTime] = useState(initial.end_time?.slice(0, 5) ?? "10:00");
   const [done, setDone] = useState(initial.done ?? false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   // 按 Esc 關閉
@@ -78,13 +70,12 @@ function DialogForm({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function handleSave(e: React.FormEvent) {
+  function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (hasTime && !dueDate) return setError("加上時間前，請先選擇日期");
     if (hasTime && endTime <= startTime) return setError("結束時間必須晚於開始時間");
 
-    setSaving(true);
     const row = {
       title: title.trim(),
       type,
@@ -96,20 +87,15 @@ function DialogForm({
       planned_end_date: plannedDate ? addDays(plannedDate, plannedDays - 1) : null,
       done,
     };
-    const { data, error } = editingId
-      ? await supabase.from("tasks").update(row).eq("id", editingId).select().single()
-      : await supabase.from("tasks").insert(row).select().single();
-    setSaving(false);
-    if (error) return setError(`儲存失敗：${error.message}`);
-    onChange({ kind: "saved", task: data });
+    // 先存到本機，有網路時自動同步
+    if (editingId) updateRow("tasks", editingId, row);
+    else insertRow("tasks", row);
     onClose();
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!editingId) return;
-    const { error } = await supabase.from("tasks").delete().eq("id", editingId);
-    if (error) return setError(`刪除失敗：${error.message}`);
-    onChange({ kind: "deleted", id: editingId });
+    deleteRow("tasks", editingId);
     onClose();
   }
 
@@ -217,8 +203,8 @@ function DialogForm({
         {error && <p className="text-sm text-secondary">{error}</p>}
 
         <div className="flex items-center gap-2 pt-2">
-          <button type="submit" className="btn-primary" disabled={saving}>
-            {saving ? "…" : "Save"}
+          <button type="submit" className="btn-primary">
+            Save
           </button>
           <button type="button" onClick={onClose} className="h-11 px-4 text-xs uppercase tracking-[0.1em] text-muted hover:text-fg">
             Cancel
@@ -236,11 +222,4 @@ function DialogForm({
       </form>
     </div>
   );
-}
-
-// 把變更套用到一個待辦陣列（新增、更新、刪除）
-export function applyTaskChange(tasks: Task[], change: TaskChange): Task[] {
-  if (change.kind === "deleted") return tasks.filter((t) => t.id !== change.id);
-  const exists = tasks.some((t) => t.id === change.task.id);
-  return exists ? tasks.map((t) => (t.id === change.task.id ? change.task : t)) : [...tasks, change.task];
 }
