@@ -4,6 +4,7 @@ import { useState } from "react";
 import { deleteRow, insertRow, saveSettings, updateRow } from "@/lib/store";
 import { useTodayData } from "@/lib/useTodayData";
 import { isPlannedOn, type Habit, type Task } from "@/lib/types";
+import { skipDayPatch, todayRemoval } from "@/lib/tasks";
 import StoreLoading from "@/components/StoreLoading";
 import TaskDialog, { type TaskDialogState } from "@/components/TaskDialog";
 import TopBar from "@/components/today/TopBar";
@@ -45,6 +46,12 @@ export default function TodayPage() {
     });
   }
 
+  // 從今日待辦移除：只拿掉今天的預計執行，或刪除整筆（規則見 lib/tasks.ts）
+  function removeFromToday(task: Task) {
+    if (todayRemoval(task, date) === "skip") updateRow("tasks", task.id, skipDayPatch(task, date));
+    else deleteRow("tasks", task.id);
+  }
+
   // 習慣打卡：今天已打卡就刪除那筆，否則新增一筆
   function toggleHabit(habit: Habit) {
     const existing = data!.habitLogs.find((l) => l.habit_id === habit.id && l.log_date === date);
@@ -69,7 +76,7 @@ export default function TodayPage() {
           onToggle={toggleTask}
           onAdd={addTask}
           onEdit={(task) => setDialog({ task })}
-          onDelete={(task) => deleteRow("tasks", task.id)}
+          onRemove={removeFromToday}
         />
         <PomodoroCard
           className="xl:row-span-2"

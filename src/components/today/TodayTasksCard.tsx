@@ -7,6 +7,7 @@ import ConfirmButton from "@/components/ConfirmButton";
 import PlusIcon from "@/components/PlusIcon";
 import { daysBetween, shortTime } from "@/lib/date";
 import type { Task } from "@/lib/types";
+import { todayRemoval } from "@/lib/tasks";
 import type { CourseLite } from "@/lib/useTodayData";
 
 type Props = {
@@ -16,11 +17,11 @@ type Props = {
   onToggle: (task: Task) => void;
   onAdd: (title: string) => Promise<void>;
   onEdit: (task: Task) => void;
-  onDelete: (task: Task) => void;
+  onRemove: (task: Task) => void; // 從今天移除：只拿掉今天的預計執行，或刪除整筆
   className?: string;
 };
 
-export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, onEdit, onDelete, className }: Props) {
+export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, onEdit, onRemove, className }: Props) {
   const [title, setTitle] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -77,13 +78,15 @@ export default function TodayTasksCard({ tasks, date, courses, onToggle, onAdd, 
                 )}
               </span>
               {/*
-                刪除：按兩次才會刪（整筆待辦都會刪掉，行事曆上的也會消失）
+                ×：按兩次才執行
+                - 因為預計執行出現在今天 → 只把今天從預計執行拿掉（例如 27–29 → 28–29），待辦保留
+                - 今天截止、或預計執行只有今天又沒有截止日 → 刪除整筆
                 有滑鼠的裝置：滑到這一筆才顯示；手機等觸控裝置沒有「滑過」，所以一直顯示
               */}
               <ConfirmButton
-                onConfirm={() => onDelete(task)}
-                confirmLabel="刪除？"
-                ariaLabel={`刪除 ${task.title}`}
+                onConfirm={() => onRemove(task)}
+                confirmLabel={todayRemoval(task, date) === "skip" ? "今天不做？" : "刪除？"}
+                ariaLabel={todayRemoval(task, date) === "skip" ? `今天不做 ${task.title}` : `刪除 ${task.title}`}
                 armedClassName="text-secondary !opacity-100"
                 className="flex h-11 min-w-11 shrink-0 items-center justify-center px-2 text-sm text-muted transition-opacity hover:text-fg focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:hover)]:opacity-0"
               >
