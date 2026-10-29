@@ -4,6 +4,7 @@ import PageHeader from "@/components/PageHeader";
 import { Empty } from "@/components/Card";
 import ConfirmButton from "@/components/ConfirmButton";
 import StoreLoading from "@/components/StoreLoading";
+import AddSessionForm from "@/components/study/AddSessionForm";
 import { deleteRow, useStore } from "@/lib/store";
 import {
   addDays,
@@ -20,7 +21,7 @@ import type { StudySession } from "@/lib/types";
 
 const DAYS_SHOWN = 30; // 顯示最近幾天的紀錄
 
-// 讀書紀錄：一筆一筆列出每次專注，可以刪除
+// 讀書紀錄：一筆一筆列出每次專注，可以刪除；忘記開番茄鐘時可以在最上面補登
 export default function StudyLogPage() {
   // 資料來自本機資料庫（離線也能看、也能刪）
   const { data: db } = useStore();
@@ -55,6 +56,10 @@ export default function StudyLogPage() {
       <PageHeader title="Study log" backHref="/" backLabel="Today">
         <span className="text-xs tabular-nums text-muted">THIS WEEK {hours(weekMinutes)}H</span>
       </PageHeader>
+
+      <AddSessionForm
+        courses={[...courses].sort((a, b) => a.created_at.localeCompare(b.created_at)).map((c) => ({ id: c.id, name: c.name }))}
+      />
 
       <section className="card">
         {sessions.length === 0 ? (
